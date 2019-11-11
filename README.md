@@ -2,4 +2,4 @@
 
 Ryan, Claire, Jacob.
 
-Using text analysis to classify.
+In this project, we will be looking what words in job descritpions 
