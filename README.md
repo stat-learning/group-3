@@ -1,3 +1,5 @@
 # group-3
 
-Ryan, Claire 
+Ryan, Claire, Jacob.
+
+Using text analysis to classify.
