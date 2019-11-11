@@ -1,3 +1,3 @@
 # group-3
 
-Ryan, 
+Ryan, Claire 
