@@ -1,0 +1,41 @@
+---
+title: "Yelp: Exploratory Analysis"
+author: "Ryan Kobler"
+date: "11/18/2019"
+output: pdf_document
+---
+### Packages:
+```{r}
+library(jsonlite)
+library(tidytext)
+library(stringr)
+library(wordcloud)
+```
+
+### Load in the data:
+```{r}
+path <- "/home/Downloads/yelp-dataset/yelp_academic_dataset_review.json"
+yelp <- stream_in(file(path))
+
+# Take sample of the data
+yelp %>% sample_frac(0.01)
+# Save sample for easy access
+write.csv(df, "yelp-train.csv")
+
+```
+
+### Extracting features:
+```{r}
+# Note: this function requires the tidytext package & drops all
+# words that do not convey sentiment
+dropStopwords <- function(string){
+  splitBySpace <- unlist(strsplit(test, split = " "))
+  todrop <- get_stopwords()
+  todrop <- todrop[[1]]
+  splitBySpace[!splitBySpace %in% todrop]
+}
+
+get_sentiments("nrc")
+get_sentiments("afinn")
+get_sentiments("loughran")
+```
