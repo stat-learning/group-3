@@ -9,7 +9,10 @@ output: pdf_document
 library(jsonlite)
 library(tidytext)
 library(stringr)
-#library(wordcloud)
+library(wordcloud)
+library(wordcloud)
+library(dplyr)
+library(ggplot2)
 ```
 
 ### Load in the data:
@@ -21,9 +24,27 @@ library(stringr)
 #yelp %>% sample_frac(0.01)
 # Save sample for easy access
 #write.csv(df, "yelp-train.csv")
+#yelp_review <- read.csv("yelp_review.csv")
+
+# Take sample of the data
+#yelp_sample <- yelp_review %>% sample_frac(0.01)
+# Save sample for easy access
+#write.csv(yelp_sample, "yelp-train.csv")
 
 # Load training data
 yelp_train <- read_csv("yelp-train.csv")
+yelp_sample <- yelp_train
+```
+
+### Count total number of words
+```{r}
+#count the number of words in the
+yelp_sample <- mutate(yelp_sample, numwords = str_count(yelp_sample$text, " "))
+#univariate analysis of size
+ggplot(data = yelp_sample, aes(x = numwords)) + geom_bar()
+#analysis of size vs star rating with locally weighted polynomial
+ggplot(data = yelp_sample, aes(x = numwords, y = stars)) + geom_jitter(size = 0.25) + geom_smooth()
+
 ```
 
 ### Extracting features:
