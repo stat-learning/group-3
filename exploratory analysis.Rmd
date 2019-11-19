@@ -10,17 +10,29 @@ library(jsonlite)
 library(tidytext)
 library(stringr)
 library(wordcloud)
+install.packages("tidyverse")
+library(dplyr)
+library(ggplot2)
+
 ```
 
 ### Load in the data:
 ```{r}
-path <- "/home/Downloads/yelp-dataset/yelp_academic_dataset_review.json"
-yelp <- stream_in(file(path))
+yelp_review <- read.csv("yelp_review.csv")
 
 # Take sample of the data
-yelp %>% sample_frac(0.01)
+yelp_sample <- yelp_review %>% sample_frac(0.01)
 # Save sample for easy access
-write.csv(df, "yelp-train.csv")
+write.csv(yelp_sample, "yelp-train.csv")
+
+```
+```{r}
+#count the number of words in the
+yelp_sample <- mutate(yelp_sample, numwords = str_count(yelp_sample$text, " "))
+#univariate analysis of size
+ggplot(data = yelp_sample, aes(x = numwords)) + geom_bar()
+#analysis of size vs star rating with locally weighted polynomial
+ggplot(data = yelp_sample, aes(x = numwords, y = stars)) + geom_jitter(size = 0.25) + geom_smooth()
 
 ```
 
