@@ -165,8 +165,18 @@ Bar chart of ratio of 'joy' to total number of words.
 ```{r}
 
 yelp_train$starsfactor <- as.factor(yelp_train$stars)
+for(sent in sentiments){
+  ratio <- paste0(sent, "ratio")
+}
 yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
+
 yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+
+
+
 
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
   geom_bar(stat = "identity")
@@ -181,6 +191,85 @@ ggplot(yelp_train, aes(starsfactor, joyratio)) +
 
 
 
+
+### Data Description
+
+The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. The useful predictors include 
+- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). 
+
+The sentiment levels categorized by the NRC lexicon are anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. And each of our variables named in this way follow the example given above.
+
+We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words. 
+
+```{r}
+# Glimpse the data set to examine the predictors
+glimpse(yelp_train)
+```
+
+
+
+
+
+
+
+### Missingness:
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+### Univariate analysis of the response
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+### Bivariate/Trivariate Graphs
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
 
 
 
