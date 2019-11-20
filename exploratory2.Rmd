@@ -309,9 +309,3 @@ is.na(yelp_train$stars)
 
 
 
-
-
-
-
-=======
->>>>>>> f42c979a84c92f836a97681525dc6ca9aa0a590d
