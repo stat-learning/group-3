@@ -75,7 +75,6 @@ get_sentiments("loughran")
 
 ```
 
-
 ### Testing on tiny data set
 ```{r}
 yelp.small <- yelp_train[1:3,]
@@ -100,6 +99,7 @@ nrcSentimentCount <- function(senti, text){
 yelp.small %>% 
   mutate(joy = nrcSentimentCount("fear", prunedtext))
 
+# Grab all of the sentiments from for testing
 sentiments <- levels(as.factor(nrc$sentiment))
 
 # Generate new columns that count the number of times each sentiment word appears
@@ -113,8 +113,14 @@ yelp.small$disgust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "
 yelp.small$trust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "trust")
 yelp.small$anticipation <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anticipation")
 yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
+```
 
-# FULL DATA SET (find a way to make this nicer)
+
+### Applying to the full training data set
+```{r}
+# Generate new column called prunedtext
+yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+
 yelp_train$joy <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "joy")
 yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
 yelp_train$fear <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "fear")
@@ -124,7 +130,6 @@ yelp_train$surprise <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = 
 yelp_train$disgust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "disgust")
 yelp_train$trust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "trust")
 yelp_train$anticipation <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anticipation")
-yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
 ```
 
 ### Add the number of words (from Jacob)
@@ -161,11 +166,36 @@ Bar chart of ratio of 'joy' to total number of words.
 
 yelp_train$starsfactor <- as.factor(yelp_train$stars)
 yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
 
-ggplot(yelp_train, aes(starsfactor, joy)) + 
+ggplot(yelp_train, aes(starsfactor, joyratio)) + 
+  geom_bar(stat = "identity")
+
+ggplot(yelp_train, aes(starsfactor, angerratio)) + 
+  geom_bar(stat = "identity")
+
+ggplot(yelp_train, aes(starsfactor, joyratio)) + 
   geom_bar(stat = "identity")
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
