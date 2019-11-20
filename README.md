@@ -1,7 +1,8 @@
-
 Ryan, Claire, Jacob.
 
 ### Group Proposal
+
+We are choosing option b. 
 
 a.  Job board text analysis. Can we predict salary from job description?
     Predictive. Regression/Classification depending on whether we decide
