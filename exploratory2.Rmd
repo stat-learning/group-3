@@ -1,10 +1,10 @@
 ---
 title: "Yelp: Exploratory Analysis"
-author: "Ryan Kobler"
-date: "11/18/2019"
+author: "Claire Jellison, Jacob Goldsmith, Ryan Kobler"
+date: "11/20/2019"
 output: pdf_document
 ---
-### Packages:
+## Packages:
 ```{r}
 library(jsonlite)
 library(tidytext)
@@ -14,30 +14,30 @@ library(dplyr)
 library(ggplot2)
 ```
 
-### Load in the data:
-```{r}
+## Load in the data:
+```{r eval=FALSE, include=TRUE}
 #path <- "/Users/ryankobler/Downloads/yelp_review.csv"
 #yelp <- read.csv(path)
 
 # Take sample of the data
-#yelp %>% sample_frac(0.01)
+yelp %>% sample_frac(0.01)
 # Save sample for easy access
-#write.csv(df, "yelp-train.csv")
-#yelp_review <- read.csv("yelp_review.csv")
+write.csv(df, "yelp-train.csv")
 
 # Take sample of the data
-#yelp_sample <- yelp_review %>% sample_frac(0.01)
+yelp_sample <- yelp_review %>% sample_frac(0.01)
 # Save sample for easy access
-#write.csv(yelp_sample, "yelp-train.csv")
+write.csv(yelp_sample, "yelp-train.csv")
 
 # Load training data
 yelp_train <- read.csv("yelp-train.csv")
 yelp_sample <- yelp_train
 ```
 
+## Clean
 ### Count total number of words
-```{r}
-#count the number of words in the
+```{r, eval = FALSE}
+#count the number of words in the review
 yelp_sample <- yelp_train
 yelp_sample <- mutate(yelp_sample, numwords = str_count(yelp_sample$text, " "))
 #univariate analysis of size
@@ -47,7 +47,9 @@ ggplot(data = yelp_sample, aes(x = numwords, y = stars)) + geom_jitter(size = 0.
 
 ```
 
-### Extracting features:
+### Define functions to extract features:
+This method of feature analysis draws from the tidytext package and resource: https://www.tidytextmining.com/sentiment.html
+
 ```{r}
 # Note: this function requires the tidytext package & drops all
 # words that do not convey sentiment
@@ -65,28 +67,9 @@ dropStopwords <- function(string){
   tolower(splitBySpace[!splitBySpace %in% todrop])
   
 }
-# Remove the stop words and save in new column
-# yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
 
-
-nrc <- get_sentiments("nrc")
-get_sentiments("afinn")
-get_sentiments("loughran")
-
-```
-
-### Testing on tiny data set
-```{r}
-yelp.small <- yelp_train[1:3,]
-yelp.small$prunedtext <- lapply(yelp.small$text, FUN = dropStopwords)
-
-yelp.small$prunedtext
-
-# Matching sentiments from the NRC dictionary
-nrc$sentiment <- as.factor(nrc$sentiment)
-
-# takes sentiment string in nrc and a sequence of pruned words
-# associated with 1 review
+# Function below takes sentiment string in nrc and a sequence of 
+# pruned words associated with 1 review
 nrcSentimentCount <- function(senti, text){
   sentiment <- nrc %>% 
   filter(sentiment == senti) %>%
@@ -96,6 +79,29 @@ nrcSentimentCount <- function(senti, text){
   sum(unlist(text) %in% unlist(sentiment))
 }
 
+# Remove the stop words and save in new column
+#yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+
+
+get_sentiments("nrc") # we chose this one for now, can consider adding
+# other sentiment lexicons to increase our # of predictors
+
+get_sentiments("afinn")
+get_sentiments("loughran")
+
+```
+
+
+### Testing on tiny data set
+```{r, eval = FALSE}
+yelp.small <- yelp_train[1:3,]
+yelp.small$prunedtext <- lapply(yelp.small$text, FUN = dropStopwords)
+
+yelp.small$prunedtext
+
+# Matching sentiments from the NRC dictionary
+nrc$sentiment <- as.factor(nrc$sentiment)
+
 yelp.small %>% 
   mutate(joy = nrcSentimentCount("fear", prunedtext))
 
@@ -103,72 +109,118 @@ yelp.small %>%
 sentiments <- levels(as.factor(nrc$sentiment))
 
 # Generate new columns that count the number of times each sentiment word appears
-yelp.small$joy <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "joy")
-yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
-yelp.small$fear <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "fear")
-yelp.small$positive <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "positive")
-yelp.small$negative <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "negative")
-yelp.small$surprise <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "surprise")
-yelp.small$disgust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "disgust")
-yelp.small$trust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "trust")
-yelp.small$anticipation <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anticipation")
-yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
+yelp.small$joy <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "joy")
+yelp.small$anger <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
+yelp.small$fear <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "fear")
+yelp.small$positive <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "positive")
+yelp.small$negative <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "negative")
+yelp.small$surprise <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "surprise")
+yelp.small$disgust <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "disgust")
+yelp.small$trust <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "trust")
+yelp.small$anticipation <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anticipation")
+yelp.small$anger <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
 ```
 
 
-### Applying to the full training data set
-```{r}
+### Apply nrcSentimentCount function to the full training data set
+Q: Is there an easier/cleaner way to create all of these columns?
+
+```{r, eval = FALSE}
 # Generate new column called prunedtext
 yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+# This column gives us a little trickiness if we try to export as .csv
+class(yelp_train$prunedtext) # note that this column is list of lists
 
-yelp_train$joy <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "joy")
-yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
-yelp_train$fear <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "fear")
-yelp_train$positive <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "positive")
-yelp_train$negative <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "negative")
-yelp_train$surprise <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "surprise")
-yelp_train$disgust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "disgust")
-yelp_train$trust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "trust")
-yelp_train$anticipation <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anticipation")
+yelp_train$joy <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "joy")
+yelp_train$anger <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
+yelp_train$fear <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "fear")
+yelp_train$positive <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "positive")
+yelp_train$negative <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "negative")
+yelp_train$surprise <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "surprise")
+yelp_train$disgust <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "disgust")
+yelp_train$trust <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "trust")
+yelp_train$anticipation <- sapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anticipation")
 ```
 
 
 ### Convert columns to numbers and normalize by length of review
-```{r}
-yelp_train$joy <- as.numeric(yelp_train$joy)/(yelp_train$nwords)
-yelp_train$anger <-  as.numeric(yelp_train$anger)/(yelp_train$nwords)
-yelp_train$fear <-  as.numeric(yelp_train$fear)/(yelp_train$nwords)
-yelp_train$positive <-  as.numeric(yelp_train$positive)/(yelp_train$nwords)
-yelp_train$negative <-  as.numeric(yelp_train$negative)/(yelp_train$nwords)
-yelp_train$surprise <-  as.numeric(yelp_train$surprise)/(yelp_train$nwords)
-yelp_train$disgust <-  as.numeric(yelp_train$disgust)/(yelp_train$nwords)
-yelp_train$trust <-  as.numeric(yelp_train$trust)/(yelp_train$nwords)
-yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
-yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
+Note that as.numeric is no longer explicitly necessary because we've used sapply instead of lapply to generate the sentiment counts. But it is not harmful.
+```{r, eval = FALSE}
+# Add column that counts the number of total words 
+yelp_train$nwords <- str_count(yelp_train$text, " ")
+
+# Generate the ratios
+yelp_train$joyratio <- as.numeric(yelp_train$joy)/(yelp_train$nwords)
+yelp_train$angerratio <-  as.numeric(yelp_train$anger)/(yelp_train$nwords)
+yelp_train$fearratio <-  as.numeric(yelp_train$fear)/(yelp_train$nwords)
+yelp_train$positiveratio <-  as.numeric(yelp_train$positive)/(yelp_train$nwords)
+yelp_train$negativeratio <-  as.numeric(yelp_train$negative)/(yelp_train$nwords)
+yelp_train$surpriseratio <-  as.numeric(yelp_train$surprise)/(yelp_train$nwords)
+yelp_train$disgustratio <-  as.numeric(yelp_train$disgust)/(yelp_train$nwords)
+yelp_train$trustratio <-  as.numeric(yelp_train$trust)/(yelp_train$nwords)
+yelp_train$anticipationratio <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
 ```
 
 
-```{r}
+### Missingness:
+In this stage of the process, we found that some of our data was missing in that some reviews had no words detected. The problem came down to review language, so we use the `textcat` package to identify the language of the review and dplyr to filter out the non-English reviews. 
+
+This can be thought of as missingness in that our results only represent Yelp reviewers writing in English. 
+
+```{r, eval = FALSE}
+yelp_train %>% 
+  filter(nwords==0)
+
+# This will take a while to run --> do overnight
+# partition the data to see where the runtime issue is... the 3000 observation
+# samples run in under a minute.
+n <- nrow(yelp_train)
+yelp_train$language <- NA 
+yelp_train[1:1000,]$language <- textcat(yelp_train[1:1000,]$text)
+yelp_train[1000:3000,]$language <- textcat(yelp_train[1000:3000,]$text)
+yelp_train[3000:6000,]$language <- textcat(yelp_train[3000:6000,]$text)
+yelp_train[6001:9000,]$language <- textcat(yelp_train[6001:9000,]$text)
+yelp_train[9000:40000,]$language <- textcat(yelp_train[9000:40000,]$text)
+yelp_train[40000:n,]$language <- textcat(yelp_train[40000:n,]$text)
+
+# save languages in another csv
+langs <- yelp_train %>% 
+  select(X1, review_id, user_id, business_id, stars, language)
+  
+# writing only id vars and languages
+write.csv(langs, "DATA/withlanguage.csv")
+
+# Remove non-English reviews
+yelp_train_en <- yelp_train %>%
+  filter(language == "english" | language == "scots")
+
+# Dropped 671 observations
+nrow(yelp_train)
+nrow(yelp_train_en)
+```
+
+
+### Write yelp_train data frame to a csv
+Save in /DATA so we don't have to run everything again. We remove the `prunedtext` column because we're guessing that the csv filetype cannot handle list type entries.
+```{r, eval = FALSE}
+write.csv(yelp_train %>% select(-prunedtext), "DATA/withlanguage.csv")
 write.csv(yelp_train[, -12], "yelp-train3.csv")
 ```
 
+### For knitting to pdf
+Because it would take forever for this to knit, we import the already clean data set now and visualize below! 
 ```{r}
-glimpse(yelp_train)
+yelp_train <- read.csv("DATA/withlanguage.csv")
+yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+
+yelp_train <- yelp_train %>%
+  filter(language == "english" | language == "scots")
 ```
-
-
-
-### Add the number of words (from Jacob)
-```{r}
-yelp_train$nwords <- str_count(yelp_train$text, " ")
-```
-
 
 
 ### Generate word clouds for each rating level
 ```{r}
-yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
-
+# Save individual words from the X-star reviews as the vector wordsX
 words4 <- yelp_train %>%
   filter(stars == 4) %>%
   pull(prunedtext)
@@ -181,71 +233,59 @@ words1 <- yelp_train %>%
   filter(stars == 1) %>%
   pull(prunedtext)
 
+# we unlist() the above vectors to get big pile o' 
+# words across all reviews since wordcloud() takes character vectors as input, 
+# not lists
 wordcloud(unlist(words5), min.freq = 10, max.words = 30)
-
 wordcloud(unlist(words1), min.freq = 10, max.words = 30)
 ```
+Idea: could think about coloring the words by sentiment.
 
-### Plot sentiments
-Number of 'joy' sentiment words versus (standardized) number of 'anticipation' words, where the stars are categorical/colored accordingly. 
-
+### Histograms of Sentiments
 Bar chart of ratio of 'joy' to total number of words. 
 ```{r}
-
-yelp_train$starsfactor <- as.factor(yelp_train$stars)
-for(sent in sentiments){
-  ratio <- paste0(sent, "ratio")
-}
-yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
-
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-
-
-
-
+# Joy
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
-  geom_bar(stat = "identity")
+  geom_bar(stat = "identity") +
+  ggtitle("Distribution of joy words")
 
+# Anger
 ggplot(yelp_train, aes(starsfactor, angerratio)) + 
-  geom_bar(stat = "identity")
+  geom_bar(stat = "identity") + 
+  ggtitle("Distribution of anger words")
 
-ggplot(yelp_train, aes(starsfactor, joyratio)) + 
-  geom_bar(stat = "identity")
+# Disgust
+ggplot(yelp_train, aes(starsfactor, disgustratio)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Distribution of disgust words")
 
+# Negativity
+ggplot(yelp_train, aes(stars, negativeratio)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Distribution of negative words")
 ```
 
 
 
 
 ### Data Description
+The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. Each observation corresponds to a review from a random business (businesses sampled with replacement). 
+We use the NRC lexicon/dictionary to categorize all the non-stopwords in the reviews as  anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. This was an arbitrary choice, for there are several other lexicons such as "loughran" and "afinn" both of which rank and categorize the sentiment of words differently. 
 
-The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. The useful predictors include 
-- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). 
+The useful predictors include: 
+- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). And each of our variables named in this way follow the example given above.
 
-The sentiment levels categorized by the NRC lexicon are anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. And each of our variables named in this way follow the example given above.
-
-We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words. 
+We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words to avoid priviledging length.
 
 ```{r}
 # Glimpse the data set to examine the predictors
 glimpse(yelp_train)
-
 ```
 
+Source: https://www.kaggle.com/yelp-dataset/yelp-dataset/version/6#yelp_review.csv
 
 
 
-
-
-
-### Missingness:
-
-```{r}
-
-```
 
 
 
@@ -265,7 +305,7 @@ ggplot(yelp_train, aes(x=stars)) +
 The mean number of stars in our sample is around 3.726 and the variance is around 2.067. We can see that the distribution of stars is somewhat oddly shaped with lots of five and four star review and a fair number of 1 star reviews. 
 
 ```{r}
-ggplot(yelp_train, aes(x=positive, y = anger)) + 
+ggplot(yelp_train, aes(x=positiveratio, y = angerratio)) + 
   geom_point(aes(color = stars)) + 
   ggtitle("Scatter of Stars") + xlim(x = 0,.4) + ylim(y = 0, .4)
 ```
