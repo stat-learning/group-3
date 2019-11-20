@@ -32,7 +32,7 @@ library(ggplot2)
 #write.csv(yelp_sample, "yelp-train.csv")
 
 # Load training data
-yelp_train <- read_csv("yelp-train.csv")
+yelp_train <- read.csv("yelp-train.csv")
 yelp_sample <- yelp_train
 ```
 
@@ -113,11 +113,41 @@ yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "an
 ```
 
 
+
+
 ### Generate word clouds for each rating level
 
 ```{r}
 
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
