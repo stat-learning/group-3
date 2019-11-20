@@ -270,7 +270,7 @@ ggplot(yelp_train, aes(x=positive, y = anger)) +
   ggtitle("Scatter of Stars") + xlim(x = 0,.4) + ylim(y = 0, .4)
 ```
 
-It appears from the 
+It appears from the scatterplot above that there are higher stars given with more positive detected text reviews and lower stars in text review that express more anger. 
 
 
 ### Bivariate/Trivariate Graphs
