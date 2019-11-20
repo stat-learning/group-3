@@ -117,6 +117,7 @@ yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "an
 
 
 ### Applying to the full training data set
+Q: Is there an easier/cleaner way to create all of these columns?
 ```{r}
 # Generate new column called prunedtext
 yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
@@ -134,26 +135,22 @@ yelp_train$anticipation <- lapply(yelp_train$prunedtext, nrcSentimentCount, sent
 
 
 ### Convert columns to numbers and normalize by length of review
+
 ```{r}
-yelp_train$joy <- as.numeric(yelp_train$joy)/(yelp_train$nwords)
-yelp_train$anger <-  as.numeric(yelp_train$anger)/(yelp_train$nwords)
-yelp_train$fear <-  as.numeric(yelp_train$fear)/(yelp_train$nwords)
-yelp_train$positive <-  as.numeric(yelp_train$positive)/(yelp_train$nwords)
-yelp_train$negative <-  as.numeric(yelp_train$negative)/(yelp_train$nwords)
-yelp_train$surprise <-  as.numeric(yelp_train$surprise)/(yelp_train$nwords)
-yelp_train$disgust <-  as.numeric(yelp_train$disgust)/(yelp_train$nwords)
-yelp_train$trust <-  as.numeric(yelp_train$trust)/(yelp_train$nwords)
-yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
-yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
+yelp_train$joyratio <- as.numeric(yelp_train$joy)/(yelp_train$nwords)
+yelp_train$angerratio <-  as.numeric(yelp_train$anger)/(yelp_train$nwords)
+yelp_train$fearratio <-  as.numeric(yelp_train$fear)/(yelp_train$nwords)
+yelp_train$positiveratio <-  as.numeric(yelp_train$positive)/(yelp_train$nwords)
+yelp_train$negativeratio <-  as.numeric(yelp_train$negative)/(yelp_train$nwords)
+yelp_train$surpriseratio <-  as.numeric(yelp_train$surprise)/(yelp_train$nwords)
+yelp_train$disgustratio <-  as.numeric(yelp_train$disgust)/(yelp_train$nwords)
+yelp_train$trustratio <-  as.numeric(yelp_train$trust)/(yelp_train$nwords)
+yelp_train$anticipationratio <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
 ```
 
 
 ```{r}
 write.csv(yelp_train[, -12], "yelp-train3.csv")
-```
-
-```{r}
-glimpse(yelp_train)
 ```
 
 
@@ -198,13 +195,6 @@ for(sent in sentiments){
 }
 yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
 
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-
-
-
 
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
   geom_bar(stat = "identity")
@@ -222,28 +212,34 @@ ggplot(yelp_train, aes(starsfactor, joyratio)) +
 
 ### Data Description
 
-The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. The useful predictors include 
-- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). 
+The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. Each observation corresponds to a review from a random business (sampled with replacement). 
+We use the NRC lexicon/dictionary to categorize all the non-stopwords in the reviews as  anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. This was an arbitrary choice, for there are several other lexicons such as "loughran" and "afinn" both of which rank and categorize the sentiment of words differently. 
 
-The sentiment levels categorized by the NRC lexicon are anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. And each of our variables named in this way follow the example given above.
+The useful predictors include: 
+- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). And each of our variables named in this way follow the example given above.
 
-We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words. 
+We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words to avoid priviledging length.
 
 ```{r}
 # Glimpse the data set to examine the predictors
 glimpse(yelp_train)
-
 ```
 
 
 
 
 
-
-
 ### Missingness:
+In this stage of the process, we found that some of our data was missing in that some reviews had no words detected. The problem came down to review language, so we use the `textcat` package to identify language given a string of text, then filter by language to remove non-English reviews. This can be thought of as missingness in that our results only represent Yelp reviewers writing in English. 
 
 ```{r}
+yelp_train %>% 
+  filter(nwords==0)
+
+# This will take a while to run--> do overnight
+yelp_train$language <- textcat(yelp_train$text)
+
+yelp <- read.csv("yelp-train3.csv")
 
 ```
 
