@@ -44,6 +44,7 @@ yelp_sample <- mutate(yelp_sample, numwords = str_count(yelp_sample$text, " "))
 ggplot(data = yelp_sample, aes(x = numwords)) + geom_bar()
 #analysis of size vs star rating with locally weighted polynomial
 ggplot(data = yelp_sample, aes(x = numwords, y = stars)) + geom_jitter(size = 0.25) + geom_smooth()
+
 ```
 
 ### Extracting features:
@@ -74,7 +75,6 @@ get_sentiments("loughran")
 
 ```
 
-
 ### Testing on tiny data set
 ```{r}
 yelp.small <- yelp_train[1:3,]
@@ -99,6 +99,7 @@ nrcSentimentCount <- function(senti, text){
 yelp.small %>% 
   mutate(joy = nrcSentimentCount("fear", prunedtext))
 
+# Grab all of the sentiments from for testing
 sentiments <- levels(as.factor(nrc$sentiment))
 
 # Generate new columns that count the number of times each sentiment word appears
@@ -115,9 +116,9 @@ yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "an
 ```
 
 
-### Cleaning the full data set
+### Applying to the full training data set
 ```{r}
-# FULL DATA SET (find a way to make this nicer)
+# Generate new column called prunedtext
 yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
 
 yelp_train$joy <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "joy")
@@ -129,9 +130,6 @@ yelp_train$surprise <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = 
 yelp_train$disgust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "disgust")
 yelp_train$trust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "trust")
 yelp_train$anticipation <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anticipation")
-yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
-
-
 ```
 
 ### Add the number of words (from Jacob)
@@ -169,13 +167,17 @@ Bar chart of ratio of 'joy' to total number of words.
 ```{r}
 
 yelp_train$starsfactor <- as.factor(yelp_train$stars)
-
-# Loops over each sentiment variable created in the above chunk
-# and generates sentimentratio = sentiment/nwords in new column
 for(sent in sentiments){
   ratio <- paste0(sent, "ratio")
-  yelp_train[ratio] <- unlist(yelp_train[sent]) / unlist(yelp_train["nwords"])
 }
+yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
+
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
+
+
 
 
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
@@ -183,11 +185,7 @@ ggplot(yelp_train, aes(starsfactor, joyratio)) +
 
 ggplot(yelp_train, aes(starsfactor, angerratio)) + 
   geom_bar(stat = "identity")
-  
-ggplot(yelp_train, aes(starsfactor, joy)) + 
-  geom_bar(stat = "identity")
 
-<<<<<<< HEAD
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
   geom_bar(stat = "identity")
 
@@ -266,7 +264,18 @@ is.na(yelp_train$stars)
 
 
 
+
+
 ```
+
+
+
+
+
+
+
+
+
 
 
 
