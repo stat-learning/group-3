@@ -144,13 +144,17 @@ yelp_train$surprise <-  as.numeric(yelp_train$surprise)/(yelp_train$nwords)
 yelp_train$disgust <-  as.numeric(yelp_train$disgust)/(yelp_train$nwords)
 yelp_train$trust <-  as.numeric(yelp_train$trust)/(yelp_train$nwords)
 yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
+yelp_train$anticipation <-  as.numeric(yelp_train$anticipation)/(yelp_train$nwords)
 ```
 
 
 ```{r}
-#newcsv <- write.csv(yelp_train, "yelp-train2.csv")
+write.csv(yelp_train[, -12], "yelp-train3.csv")
 ```
 
+```{r}
+glimpse(yelp_train)
+```
 
 
 
@@ -247,26 +251,24 @@ glimpse(yelp_train)
 
 
 
-
-
-
 ### Univariate analysis of the response
 
 ```{r}
 mean(yelp_train$stars)
-
-
-
-
-
-
-
-
-
+var(yelp_train$stars)
+ggplot(yelp_train, aes(x=stars)) + 
+  geom_histogram(binwidth=1) + 
+  ggtitle("Bar Graph of Stars") 
 
 ```
 
-The mean number of stars in our sample is around 3.726. 
+The mean number of stars in our sample is around 3.726 and the variance is around 2.067. 
+
+```{r}
+ggplot(yelp_train, aes(x=positive, y = anger)) + 
+  geom_point(aes(color = stars)) + 
+  ggtitle("Scatter of Stars") 
+```
 
 
 
