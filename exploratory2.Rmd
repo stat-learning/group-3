@@ -262,14 +262,15 @@ ggplot(yelp_train, aes(x=stars)) +
 
 ```
 
-The mean number of stars in our sample is around 3.726 and the variance is around 2.067. 
+The mean number of stars in our sample is around 3.726 and the variance is around 2.067. We can see that the distribution of stars is somewhat oddly shaped with lots of five and four star review and a fair number of 1 star reviews. 
 
 ```{r}
 ggplot(yelp_train, aes(x=positive, y = anger)) + 
   geom_point(aes(color = stars)) + 
-  ggtitle("Scatter of Stars") 
+  ggtitle("Scatter of Stars") + xlim(x = 0,.4) + ylim(y = 0, .4)
 ```
 
+It appears from the 
 
 
 ### Bivariate/Trivariate Graphs
