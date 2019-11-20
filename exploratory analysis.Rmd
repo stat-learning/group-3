@@ -10,7 +10,6 @@ library(jsonlite)
 library(tidytext)
 library(stringr)
 library(wordcloud)
-library(wordcloud)
 library(dplyr)
 library(ggplot2)
 ```
@@ -39,6 +38,7 @@ yelp_sample <- yelp_train
 ### Count total number of words
 ```{r}
 #count the number of words in the
+yelp_sample <- yelp_train
 yelp_sample <- mutate(yelp_sample, numwords = str_count(yelp_sample$text, " "))
 #univariate analysis of size
 ggplot(data = yelp_sample, aes(x = numwords)) + geom_bar()
@@ -60,7 +60,10 @@ dropStopwords <- function(string){
   splitBySpace <- splitBySpace[splitBySpace != ""]
   todrop <- get_stopwords() # query dictionary of stopwords
   todrop <- todrop[[1]]
-  splitBySpace[!splitBySpace %in% todrop] # remove stop words
+  
+  # remove stop words and wrap as lowercase
+  tolower(splitBySpace[!splitBySpace %in% todrop])
+  
 }
 # Remove the stop words and save in new column
 # yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
@@ -110,14 +113,68 @@ yelp.small$disgust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "
 yelp.small$trust <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "trust")
 yelp.small$anticipation <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anticipation")
 yelp.small$anger <- lapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
+
+# FULL DATA SET (find a way to make this nicer)
+yelp_train$joy <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "joy")
+yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
+yelp_train$fear <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "fear")
+yelp_train$positive <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "positive")
+yelp_train$negative <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "negative")
+yelp_train$surprise <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "surprise")
+yelp_train$disgust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "disgust")
+yelp_train$trust <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "trust")
+yelp_train$anticipation <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anticipation")
+yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "anger")
 ```
 
+### Add the number of words (from Jacob)
+```{r}
+yelp_train$nwords <- str_count(yelp_train$text, " ")
+```
 
 ### Generate word clouds for each rating level
+```{r}
+yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
 
+words4 <- yelp_train %>%
+  filter(stars == 4) %>%
+  pull(prunedtext)
+
+words5 <- yelp_train %>%
+  filter(stars == 5) %>%
+  pull(prunedtext)
+
+words1 <- yelp_train %>%
+  filter(stars == 1) %>%
+  pull(prunedtext)
+
+wordcloud(unlist(words5), min.freq = 10, max.words = 30)
+
+wordcloud(unlist(words1), min.freq = 10, max.words = 30)
+```
+
+### Plot sentiments
+Number of 'joy' sentiment words versus (standardized) number of 'anticipation' words, where the stars are categorical/colored accordingly. 
+
+Bar chart of ratio of 'joy' to total number of words. 
 ```{r}
 
+yelp_train$starsfactor <- as.factor(yelp_train$stars)
+yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
+
+ggplot(yelp_train, aes(starsfactor, joy)) + 
+  geom_bar(stat = "identity")
 
 ```
+
+
+
+
+
+
+
+
+
+
 
 
