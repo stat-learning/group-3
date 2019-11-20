@@ -165,18 +165,13 @@ Bar chart of ratio of 'joy' to total number of words.
 ```{r}
 
 yelp_train$starsfactor <- as.factor(yelp_train$stars)
+
 for(sent in sentiments){
   ratio <- paste0(sent, "ratio")
+  yelp_train[ratio] <- unlist(yelp_train[sent]) / unlist(yelp_train["nwords"])
 }
+
 yelp_train$joyratio <- yelp_train$joy / yelp_train$nwords
-
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-yelp_train$angerratio <- yelp_train$anger / yelp_train$nwords
-
-
-
 
 ggplot(yelp_train, aes(starsfactor, joyratio)) + 
   geom_bar(stat = "identity")
