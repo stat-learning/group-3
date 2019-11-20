@@ -31,7 +31,7 @@ library(ggplot2)
 #write.csv(yelp_sample, "yelp-train.csv")
 
 # Load training data
-yelp_train <- read_csv("yelp-train.csv")
+yelp_train <- read.csv("yelp-train.csv")
 yelp_sample <- yelp_train
 ```
 
@@ -139,6 +139,8 @@ yelp_train$anger <- lapply(yelp_train$prunedtext, nrcSentimentCount, senti = "an
 yelp_train$nwords <- str_count(yelp_train$text, " ")
 ```
 
+
+
 ### Generate word clouds for each rating level
 ```{r}
 yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
@@ -185,7 +187,107 @@ ggplot(yelp_train, aes(starsfactor, angerratio)) +
 ggplot(yelp_train, aes(starsfactor, joy)) + 
   geom_bar(stat = "identity")
 
+<<<<<<< HEAD
+ggplot(yelp_train, aes(starsfactor, joyratio)) + 
+  geom_bar(stat = "identity")
+
 ```
+
+
+
+
+### Data Description
+
+The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. The useful predictors include 
+- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). 
+
+The sentiment levels categorized by the NRC lexicon are anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. And each of our variables named in this way follow the example given above.
+
+We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words. 
+
+```{r}
+# Glimpse the data set to examine the predictors
+glimpse(yelp_train)
+
+```
+
+
+
+
+
+
+
+### Missingness:
+
+```{r}
+mean(yelp_train$stars)
+antnum <- as.numeric(yelp_train$anticipation)
+is.na(yelp_train$stars)
+```
+
+
+
+
+
+
+
+
+### Univariate analysis of the response
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+### Bivariate/Trivariate Graphs
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
