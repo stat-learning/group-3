@@ -12,7 +12,7 @@ library(stringr)
 library(wordcloud)
 library(dplyr)
 library(ggplot2)
-library(ggpairs)
+library(GGally)
 ```
 
 ## Load in the data:
@@ -326,7 +326,8 @@ ggpairs(num_only, labels = colnames(num_only)) # this is not very useful
 selected <- data.frame(num_only$nwords, num_only$positiveratio, num_only$negativeratio, num_only$angerratio)
 #do a corrgram on those vars
 ggpairs(selected, labels = colnames(selected))
-ggplot(aes(geom_point))
+```
+```{r}
 #selected scatterplots of important variables
 ggplot(data = num_only, aes(x = nwords, y = stars)) + geom_jitter(size = 0.25) + geom_smooth() #stars
 ggplot(data = num_only, aes(x = nwords, y = positiveratio)) + geom_point(aes(color = stars))
