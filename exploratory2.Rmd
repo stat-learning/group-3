@@ -323,14 +323,14 @@ num_only <- yelp_train[,bool]
 #scatterplot matrix of all of the variables
 ggpairs(num_only, labels = colnames(num_only)) # this is not very useful
 #so I create a data.frame with only 4 essential variables
-selected <- data.frame(num_only$nwords, num_only$positive, num_only$negative, num_only$anger)
+selected <- data.frame(num_only$nwords, num_only$positiveratio, num_only$negativeratio, num_only$angerratio)
 #do a corrgram on those vars
 ggpairs(selected, labels = colnames(selected))
 ggplot(aes(geom_point))
 #selected scatterplots of important variables
 ggplot(data = num_only, aes(x = nwords, y = stars)) + geom_jitter(size = 0.25) + geom_smooth() #stars
-ggplot(data = num_only, aes(x = nwords, y = positive)) + geom_point(aes(color = stars))
-ggplot(data = num_only, aes(x = nwords, y = negative)) + geom_point(aes(color = stars))
+ggplot(data = num_only, aes(x = nwords, y = positiveratio)) + geom_point(aes(color = stars))
+ggplot(data = num_only, aes(x = nwords, y = negativeratio)) + geom_point(aes(color = stars))
 #adding a column that is positive - negative
 num_only$netpos <- num_only$positive - num_only$negative
 ggplot(data = num_only, aes(x = nwords, y = netpos)) + geom_point(aes(color = stars))
