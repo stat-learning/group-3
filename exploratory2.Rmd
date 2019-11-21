@@ -2,8 +2,14 @@
 title: "Yelp: Exploratory Analysis"
 author: "Claire Jellison, Jacob Goldsmith, Ryan Kobler"
 date: "11/20/2019"
-output: pdf_document
+output: md_document
 ---
+
+## Overview:
+The Yelp dataset includes over 5 million text reviews from businesses around the world. We aim to predict the number of stars a reviewer gives a business from the text of the review itself.  To do so, we extract features of the text such as overall sentiment and word count to use as predictors.  
+
+Data source: https://www.kaggle.com/yelp-dataset/yelp-dataset/version/6#yelp_review.csv
+
 ## Packages:
 ```{r}
 library(jsonlite)
@@ -34,6 +40,7 @@ write.csv(yelp_sample, "yelp-train.csv")
 yelp_train <- read.csv("yelp-train.csv")
 yelp_sample <- yelp_train
 ```
+
 
 ## Clean
 ### Count total number of words
@@ -86,10 +93,36 @@ nrcSentimentCount <- function(senti, text){
 
 get_sentiments("nrc") # we chose this one for now, can consider adding
 # other sentiment lexicons to increase our # of predictors
-
 get_sentiments("afinn")
 get_sentiments("loughran")
 
+```
+
+
+### For knitting..
+Because running the cleaning steps may take too long, we import the already clean data set now. The cleaning section below recounts our process of sampling from the larger data set and feature extraction.
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+
+yelp_train <- yelp_train %>%
+  filter(language == "english" | language == "scots")
+```
+
+### Data Description
+
+The training data set, is a 1% random sample of the entire yelp_review universe, made up of 52,616 observations and 19 variables. Each observation corresponds to a review from a random business. 
+We use the NRC lexicon/dictionary to categorize all the non-stopwords in the reviews as  anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. This was an arbitrary choice, for there are several other lexicons such as "loughran" and "afinn" both of which rank and categorize the sentiment of words differently. 
+
+The useful predictors include: 
+- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). And each of our variables named in this way follow the example given above.
+
+We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words to avoid privileging review length.
+
+```{r}
+# Glimpse the data set to examine the predictors
+glimpse(yelp_train)
 ```
 
 
@@ -208,16 +241,6 @@ write.csv(yelp_train %>% select(-prunedtext), "DATA/withlanguage.csv")
 write.csv(yelp_train[, -12], "yelp-train3.csv")
 ```
 
-### For knitting to pdf
-Because it would take forever for this to knit, we import the already clean data set now and visualize below! 
-```{r}
-yelp_train <- read.csv("DATA/withlanguage.csv")
-yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
-
-yelp_train <- yelp_train %>%
-  filter(language == "english" | language == "scots")
-```
-
 
 ### Generate word clouds for each rating level
 ```{r}
@@ -267,31 +290,6 @@ ggplot(yelp_train, aes(stars, negativeratio)) +
 ```
 
 
-
-
-### Data Description
-The training data set, which is a 1% random sample of the entire yelp_review universe, is made up of 52,616 observations and 19 variables. Each observation corresponds to a review from a random business (businesses sampled with replacement). 
-We use the NRC lexicon/dictionary to categorize all the non-stopwords in the reviews as  anger, anticipation, disgust, fear, negative, positive, sadness, surprise, and trust. This was an arbitrary choice, for there are several other lexicons such as "loughran" and "afinn" both of which rank and categorize the sentiment of words differently. 
-
-The useful predictors include: 
-- `joy`: number of joy-categorized words that appear in the body of the review (after removing stop words). And each of our variables named in this way follow the example given above.
-
-We also include ratios for each, so `joyratio` is the total number of joy words divided by the total number of non-stop words to avoid priviledging length.
-
-```{r}
-# Glimpse the data set to examine the predictors
-glimpse(yelp_train)
-```
-
-Source: https://www.kaggle.com/yelp-dataset/yelp-dataset/version/6#yelp_review.csv
-
-
-
-
-
-
-
-
 ### Univariate analysis of the response
 
 ```{r}
@@ -311,7 +309,9 @@ ggplot(yelp_train, aes(x=positiveratio, y = angerratio)) +
   ggtitle("Scatter of Stars") + xlim(x = 0,.4) + ylim(y = 0, .4)
 ```
 
-It appears from the 
+As expected, it appears from the graph that words labeled as "anger" tend to have a smaller number of stars whereas words that are labeled as positive tend to have a higher number of stars. We can also see that positive words are more frequently used in higher proportion than angry words. 
+
+Even though each of the sentiments are normalized by the number of words total, there may simply be more positive words in the NRC dictionary, increasing the likelihood that any one review finds positive words that match. In fitting a model, we will want to be cognizant of this. 
 
 
 
@@ -321,7 +321,7 @@ It appears from the
 bool <- sapply(yelp_train, is.numeric)
 num_only <- yelp_train[,bool]
 #scatterplot matrix of all of the variables
-ggpairs(num_only, labels = colnames(num_only)) # this is not very useful
+#ggpairs(num_only, labels = colnames(num_only)) # this is not very useful
 #so I create a data.frame with only 4 essential variables
 selected <- data.frame(num_only$nwords, num_only$positiveratio, num_only$negativeratio, num_only$angerratio)
 #do a corrgram on those vars
