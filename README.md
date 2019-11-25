@@ -1,4 +1,3 @@
-
 Ryan, Claire, Jacob.
 
 ### Group Proposal
