@@ -1,0 +1,83 @@
+---
+title: "pca"
+author: "Claire Jellison"
+date: "11/24/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+```
+
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+```
+
+#get data of just the sentiments 
+```{r}
+
+yelp_sent <- yelp_train %>% select( "stars", "joyratio" , "angerratio" , "fearratio" , "positiveratio", "negativeratio", "surpriseratio", "disgustratio" , "trustratio" , "anticipationratio")
+yelp_sent <- na.omit(yelp_sent)
+yelp_sent_stars <- yelp_sent%>% select( "stars")
+yelp_sent1 <- yelp_sent %>% select(-stars)
+head(yelp_sent1)
+
+```
+
+
+```{r}
+pca1 <- prcomp(yelp_sent1, scale = TRUE)
+names(pca1)
+```
+
+
+```{r echo = FALSE, fig.height=6.5, fig.width = 6.5, fig.align='center'}
+d <- as.data.frame(pca1$x)
+d$stars <- na.omit(yelp_sent_stars$stars)
+levels(d$stars)[levels(d$stars)=="Stars"] <- "Stars"
+p1 <- ggplot(d, aes(x = PC1, y = PC2)) +
+  geom_point(size = 3, color = d$stars) +
+  xlim(c(-3, 3)) + guides(color = "legend") + theme(legend.position = "top")
+  #theme_bw(base_size = 11) 
+p1
+```
+
+```{r}
+pca1$rotation
+```
+
+```{r}
+biplot(pca1, expand=13, xlim=c(-1.2, 0.3), ylim=c(0, 1), repel = TRUE) 
+```
+
+```{r}
+library(factoextra)
+```
+
+```{r}
+fviz_eig(pca1)
+```
+
+Based on code from http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
+```{r}
+fviz_pca_var(pca1,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+```{r}
+fviz_pca_biplot(pca1, repel = TRUE,
+                col.var = "#2E9FDF", # Variables color
+                col.ind = "#696969"  # Individuals color
+                )
+```
+

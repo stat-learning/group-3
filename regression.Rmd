@@ -1,0 +1,51 @@
+---
+title: "regression"
+author: "Claire Jellison"
+date: "11/24/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(jsonlite)
+library(tidytext)
+library(stringr)
+library(wordcloud)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+```
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+```
+
+```{r}
+head(yelp_train)
+# Remove non-English reviews
+yelp_train_en <- yelp_train %>%
+  filter(language == "english" | language == "scots")
+```
+
+#Adding the number of words as column
+```{r}
+yelp_train <- mutate(yelp_train, numwords = str_count(yelp_train$text, " "))
+#yelp_train <- mutate(yelp_train, numwordscheck = str_count(yelp_train$text, '\\w+'))
+```
+
+```{r}
+yelp_train$numwords2 = yelp_train$numwords^2
+```
+
+
+```{r}
+
+basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + numwords + numwords2, data = yelp_train)
+summary(basiclinear)
+```
+
+
+```{r}
+
+```
+
