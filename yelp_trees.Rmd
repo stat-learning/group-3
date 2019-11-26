@@ -1,0 +1,68 @@
+---
+title: "Modelling"
+author: "Jacob Goldsmith"
+date: "11/23/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+install.packages("rfUtilities")
+library(rfUtilities)
+library(gbm)
+library(dplyr)
+```
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+ yelp_train <- yelp_train %>%
+ filter(language == "english" | language == "scots")
+bool <- sapply(yelp_train, is.numeric)
+num_only <- na.omit(yelp_train[,bool])
+num_only$starsfactor <- as.factor(num_only$starsfactor)
+set.seed(12)
+num_only <- num_only[,-3]
+nostars <- num_only[,-7]
+
+```
+
+```{r}
+#random forest model
+rf <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only) / 3)
+#out of bag misclassification rate
+conf <- rf$confusion[,-6]
+misc_rate <- 1 - (sum(diag(conf)) / sum(conf))
+misc_rate
+#0.5292713
+
+#cross validation through random sampling - the results are hard to interpret
+#validate <- rf.crossValidation(rf, xdata = nostars, p = 0.10, n = 10, ntree = 500)
+```
+```{r}
+#k-fold cross validation
+crossval <- function(dat,k) {
+partition_index <- rep(1:k, each = nrow(dat)/k) %>% #Assigns a number to every obs in dat
+  sample()
+dat <- dat[1:length(partition_index),] #prevents extraneous rows
+misclass_i <- vector(length = k) #preallocates memory for a vector
+dat$partition_index <- partition_index
+for (i in 1:k){
+  test <- dat[which(dat$partition_index == i),] #get test data
+  training <- dat[which(dat$partition_index != i),] #get training data
+  randfor <- randomForest(data = training, starsfactor~., ntree = 500, mtry = ncol(dat) / 3)
+  pred <- predict(object = randfor, newdata = test, type = "response")
+  conf <- table(test$starsfactor, pred)
+  misclass_i[i] <- 1 - (sum(diag(conf)) / sum(conf))   #Fills in vector of length K
+}
+misclass <- mean(misclass_i)
+misclass
+}
+crossval(num_only,5)
+#0.5272382 misclass
+```
+
+```{r}
+#boosted model
+boost <- gbm(data = num_only, , starsfactor ~ ., n.trees = 500, shrinkage = 0.01, interaction.depth = 1)
+#training misclassification rate
