@@ -54,6 +54,8 @@ num_only <- num_only[,-1]
 
 nostars <- num_only[,-7]
 
+num_only %<>%
+  select(-c("X", "X1", "stars"))
 ```
 
 ```{r}
@@ -70,7 +72,7 @@ misc_rate
 
 ```{r}
 #random forest model
-rf <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only) / 3)
+rf <- randomForest(data = num_only, starsfactor~., ntree = 100, mtry = ncol(num_only) / 3)
 #out of bag misclassification rate
 conf <- rf$confusion[,-6]
 misc_rate <- 1 - (sum(diag(conf)) / sum(conf))
@@ -114,7 +116,15 @@ import
 ```{r}
 #boosted model
 #boost <- gbm(data = num_only, starsfactor ~ ., n.trees = 500, shrinkage = 0.01, interaction.depth = 1, cv.folds = 5, train.fraction = 0.2) #how to intepret results??
-boost <- gbm(data = num_only, starsfactor ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1) #how to intepret results
+boost <- gbm(data = num_only, starsfactor ~ ., 
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1) #how to intepret results
+
+yhat.boost <- predict(boost, newdata = num_only, n.trees = 100, type = "response")
+
+
+summary(boost)
 
 ```
 

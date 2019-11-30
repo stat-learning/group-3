@@ -17,7 +17,7 @@ negations <- c("not", "no", "never", "without")
 # Use tidytext fn unnest_tokens() to grab the `text` column and partition into
 # 2-word tokens so "This place is trash" becomes "This place", "place is", 
 # "is trash" 
-bigrams_sep <- yelp_train %>%
+bigrams <- yelp_train %>%
   unnest_tokens(bigram, text, token = "ngrams", n = 2)
 
 # separate the 2-word bigrams into columns word1, word2
