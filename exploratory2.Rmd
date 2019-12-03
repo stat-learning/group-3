@@ -309,10 +309,12 @@ ggplot(yelp_train, aes(x=positiveratio, y = angerratio)) +
   ggtitle("Scatter of Stars") + xlim(x = 0,.4) + ylim(y = 0, .4)
 ```
 
+
+It appears from the scatterplot above that there are higher stars given with more positive detected text reviews and lower stars in text review that express more anger. 
+
 As expected, it appears from the graph that words labeled as "anger" tend to have a smaller number of stars whereas words that are labeled as positive tend to have a higher number of stars. We can also see that positive words are more frequently used in higher proportion than angry words. 
 
 Even though each of the sentiments are normalized by the number of words total, there may simply be more positive words in the NRC dictionary, increasing the likelihood that any one review finds positive words that match. In fitting a model, we will want to be cognizant of this. 
-
 
 
 ### Bivariate/Trivariate Graphs
@@ -347,15 +349,6 @@ cor(selected, use = "complete.obs")
 
 
 
-
-
-
-
-
-
-
-
-```
 
 
 

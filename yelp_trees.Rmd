@@ -1,0 +1,169 @@
+---
+title: "Modelling"
+author: "Jacob Goldsmith"
+date: "11/23/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+install.packages("rfUtilities")
+library(rfUtilities)
+library(gbm)
+library(dplyr)
+library(caret)
+library(tokenizers)
+```
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+ yelp_train <- yelp_train %>%
+ filter(language == "english" | language == "scots")
+ 
+ nSentences <- function(string){
+  length(tokenize_sentences(string))
+}
+
+# Use tokenize_sentences() function to separate the long body of text into
+# sentence segments. 
+sentences <- tokenize_sentences(as.character(yelp_train$text))
+yelp_train$sentences <- sapply(sentences, length)
+
+#-----------------------------------------------------
+# Punctuation mark frequency
+library(stringr)
+
+# Use the stringr library to count the number of punctuation marks of all
+# types, designated by the "[[:punct:]]" pattern and save in new var `punct`.
+yelp_train$punct <- str_count(as.character(yelp_train$text),
+                              "[[:punct:]]")
+
+yelp_train$exclaim <- str_count(as.character(yelp_train$text),
+                              "!")
+```
+
+```{r}
+bool <- sapply(yelp_train, is.numeric)
+num_only <- na.omit(yelp_train[,bool])
+num_only$starsfactor <- as.factor(num_only$starsfactor)
+set.seed(12)
+num_only <- num_only[,-3]
+num_only <- num_only[,-2]
+num_only <- num_only[,-1]
+
+nostars <- num_only[,-7]
+
+num_only %<>%
+  select(-c("X", "X1", "stars"))
+```
+
+```{r}
+#bagged model
+rf <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only) - 1)
+#out of bag misclassification rate
+conf <- rf$confusion[,-6]
+misc_rate <- 1 - (sum(diag(conf)) / sum(conf))
+misc_rate
+
+# 0.5225142 with the new predictors
+```
+
+
+```{r}
+#random forest model
+rf <- randomForest(data = num_only, starsfactor~., ntree = 100, mtry = ncol(num_only) / 3)
+#out of bag misclassification rate
+conf <- rf$confusion[,-6]
+misc_rate <- 1 - (sum(diag(conf)) / sum(conf))
+misc_rate
+
+#0.5162768 with the new predictors
+
+#cross validation through random sampling - the results are hard to interpret
+#validate <- rf.crossValidation(rf, xdata = nostars, p = 0.10, n = 10, ntree = 500)
+```
+```{r}
+#k-fold cross validation
+crossval <- function(dat,k) {
+partition_index <- rep(1:k, each = nrow(dat)/k) %>% #Assigns a number to every obs in dat
+  sample()
+dat <- dat[1:length(partition_index),] #prevents extraneous rows
+misclass_i <- vector(length = k) #preallocates memory for a vector
+dat$partition_index <- partition_index
+for (i in 1:k){
+  test <- dat[which(dat$partition_index == i),] #get test data
+  training <- dat[which(dat$partition_index != i),] #get training data
+  randfor <- randomForest(data = training, starsfactor~., ntree = 500, mtry = ncol(dat) / 3)
+  pred <- predict(object = randfor, newdata = test, type = "response")
+  conf <- table(test$starsfactor, pred)
+  misclass_i[i] <- 1 - (sum(diag(conf)) / sum(conf))   #Fills in vector of length K
+}
+misclass <- mean(misclass_i)
+misclass
+}
+crossval(num_only,5)
+
+#____ with the new predictors
+```
+
+```{r}
+#variable importance
+import <- varImpPlot(rf, cex = 0.5)
+import 
+```
+
+```{r}
+#boosted model
+#boost <- gbm(data = num_only, starsfactor ~ ., n.trees = 500, shrinkage = 0.01, interaction.depth = 1, cv.folds = 5, train.fraction = 0.2) #how to intepret results??
+boost <- gbm(data = num_only, starsfactor ~ ., 
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1) #how to intepret results
+
+yhat.boost <- predict(boost, newdata = num_only, n.trees = 100, type = "response")
+
+
+summary(boost)
+
+```
+
+```{r}
+#test misclassification rate from k-fold
+crossval_gbm <- function(dat,k) {
+partition_index <- rep(1:k, each = nrow(dat)/k) %>% #Assigns a number to every obs in dat
+  sample()
+dat <- dat[1:length(partition_index),] #prevents extraneous rows
+misclass_i <- vector(length = k) #preallocates memory for a vector
+dat$partition_index <- partition_index
+for (i in 1:k){
+  test <- dat[which(dat$partition_index == i),] #get test data
+  training <- dat[which(dat$partition_index != i),] #get training data
+  boost <- gbm(data = training, starsfactor ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
+  pred <- predict(object = boost, newdata = test, n.trees = 500, type = "response")
+  predmat <- as.matrix(pred[1:nrow(test),1:5,])
+  predclass <- colnames(predmat)[max.col(predmat,ties.method="first")]
+  conf <- table(test$starsfactor, predclass)
+  misclass_i[i] <- 1 - (sum(diag(conf)) / sum(conf))   #Fills in vector of length K
+}
+misclass <- mean(misclass_i)
+misclass
+}
+
+#misclassification rate with the new predictors - 0.4987968 - slightly better than the random forest
+crossval_gbm(num_only, 5)
+```
+```{r}
+#importance
+import_gbm <- varImp(boost, numTrees = 500)
+import_gbm$varnames <- rownames(import_gbm)
+ggplot(import_gbm, aes(x=reorder(varnames, Overall), weight = Overall)) + 
+  geom_bar(color = "Blue") +
+  scale_fill_discrete(name="Variable Group") +
+  ylab("Importance") +
+  xlab("Variable Name") +
+  theme(text = element_text(size = 20), 
+        axis.text.x = element_text(size = 10, angle=90, hjust=1))
+```
+
+
