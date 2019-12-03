@@ -28,6 +28,89 @@ This will be the most extensive section and will include your results as well.
 ### Discussion
 Review the results generated above and sythensize them in the context from which the data originated. What do the results tell your about your original research question? Are there any weaknesses that you see in your analysis? What additional questions would you explore next?
 
+Model Analysis:
+
+Linear Model:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+LDA:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+
+QDA:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+
+
+BAGGED FOREST:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate/ OOB misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+
+
+RANDOM FOREST:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate/ oob misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+
+
+BOOSTED TREES:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+
+4. Test Misclassification rate
+
+
+
 ### References
 At minimum, this will contain the full citation for your data set. If you reference existing analyses, they should be cited here as well.
 
