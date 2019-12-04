@@ -6,6 +6,8 @@ path <- "/Users/ryankobler/Downloads/yelp_review.csv"
 # Bring in old training data set
 yelp_train <- read.csv("withlanguage.csv")
 
+# take only the first 200000 observations, which may not be a random sample of the 
+# 5 million reviews
 bigfile.sample <- read.csv(path,  
                            stringsAsFactors=FALSE, header=T, nrows=200000)  
 cols <- colnames(bigfile.sample)

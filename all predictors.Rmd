@@ -113,17 +113,6 @@ afinn <- get_sentiments("afinn")
 
 # ----------------------------------------
 
-# 1. Use join the afinn sentiment scores to the bigrams_sep df
-# (contains multiple rows per review bc each review is split into
-# 2-word combos)
-
-
-# 2. Mutate: set the negated bigrams to the opposite of its recognized
-# sentiment, and the normal bigrams to the usual sentiment
-
-# 3. Group_by and Summarise: there are too many observations per 
-# review, so collapse the observations by review ID, then take their mean
-# sentiment score.
 afinn_scores <- bigrams_sep %>%
   inner_join(afinn, by = c(word2 = "word")) %>%
   mutate(ifelse(word1 %in% negations,
@@ -137,7 +126,50 @@ afinn_scores <- bigrams_sep %>%
 yelp_train <- left_join(yelp_train, afinn_scores, by = "X")
 ```
 
+
+## Bring in neutral sentiment words
+We realized that the model was predicting the tail star ratings well, which may be a result of the chosen sentiment predictors. For instance, we don't have a "mediocre" lexicon, but do capture mostly the extreme sentiments: anger, joy, disgust. 
+
+```{r}
+vader <- read.delim("DATA/vader_lexicon.txt")
+vader$word <- vader$X..
+vader$rating <- vader$X.1.5
+vader$sd <- vader$X0.80623
+
+# Arbitrarily choose neutral thresholds less than 1.5 in intvl [-3, 3]
+neu.df <- vader %>% 
+  filter(abs(rating) < 1.5 & sd < 1) %>%
+  select(word, rating, sd)
+
+# input should be the `prunedtext` column
+countNeutrals <- function(text){
+  sum(unlist(text) %in% as.character(neu.df$word))
+}
+
+yelp_train$neutral <- sapply(yelp_train$prunedtext, countNeutrals)
+yelp_train$neutralratio <- yelp_train$neutral / yelp_train$nwords
+
+onestar <- yelp_train %>% filter(stars == 1)
+twostar <- yelp_train %>% filter(stars == 2)
+threestar <- yelp_train %>% filter(stars == 3)
+fourstar <- yelp_train %>% filter(stars == 4)
+fivestar <- yelp_train %>% filter(stars == 5)
+
+summary(onestar$neutralratio) 
+summary(twostar$neutralratio)
+summary(threestar$neutralratio)
+summary(fourstar$neutralratio)
+summary(fivestar$neutralratio)
+
+
+
+```
+
+## 
+
 ## Write to csv
 ```{r}
 write.csv(yelp_train, "DATA/training_newpred.csv")
 ```
+
+
