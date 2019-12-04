@@ -1,0 +1,143 @@
+---
+title: "Start to finish-data frame"
+author: "Ryan Kobler"
+date: "12/2/2019"
+output: pdf_document
+---
+
+## Load packages
+```{r}
+library(dplyr)
+library(tokenizers)
+library(tidytext)
+library(tidyr)
+library(stringr)
+```
+
+Define functions
+```{r}
+# Note: this function requires the tidytext package & drops all
+# words that do not convey sentiment
+dropStopwords <- function(string){
+  # Remove all punctuation except apostrophes & replace with " "
+  noPunc <- gsub("[^[:alnum:][:space:]']", " ", string) 
+  # Split the larger string by space using strsplit()
+  splitBySpace <- unlist(strsplit(noPunc, split = " "))
+  # Remove missing chunks
+  splitBySpace <- splitBySpace[splitBySpace != ""]
+  todrop <- get_stopwords() # query dictionary of stopwords
+  todrop <- todrop[[1]]
+  
+  # remove stop words and wrap as lowercase
+  tolower(splitBySpace[!splitBySpace %in% todrop])
+  
+}
+
+# Function below takes sentiment string in nrc and a sequence of 
+# pruned words associated with 1 review
+nrcSentimentCount <- function(senti, text){
+  sentiment <- nrc %>% 
+  filter(sentiment == senti) %>%
+  select(word)
+  
+  # outputs a count of the number of "trues"
+  sum(unlist(text) %in% unlist(sentiment))
+}
+
+# Remove the stop words and save in new column
+#yelp_train$prunedtext <- lapply(yelp_train$text, FUN = dropStopwords)
+
+```
+
+
+## Bring in withlanguage data
+
+```{r}
+yelp_train <- read.csv("DATA/withlanguage.csv")
+
+yelp_train <- yelp_train %>%
+  filter(language == "english" | language == "scots")
+```
+
+
+## Adding punctuation predictors
+
+```{r}
+yelp_train$starsfactor <- as.factor(yelp_train$stars)
+
+nSentences <- function(string){
+  length(tokenize_sentences(string))
+}
+
+# Use tokenize_sentences() function to separate the long body of text into
+# sentence segments. 
+sentences <- tokenize_sentences(as.character(yelp_train$text))
+yelp_train$sentences <- sapply(sentences, length)
+
+#-----------------------------------------------------
+# Punctuation mark frequency
+
+# Use the stringr library to count the number of punctuation marks of all
+# types, designated by the "[[:punct:]]" pattern and save in new var `punct`.
+yelp_train$punct <- str_count(as.character(yelp_train$text),
+                              "[[:punct:]]")
+
+yelp_train$exclaim <- str_count(as.character(yelp_train$text),
+                              "!")
+```
+
+
+## Adding negation words using the Afinn lexicon
+
+```{r}
+
+
+negations <- c("not", "no", "never", "without")
+
+bigrams <- yelp_train %>%
+  unnest_tokens(bigram, text, token = "ngrams", n = 2)
+
+# separate the 2-word bigrams into columns word1, word2
+bigrams_sep <- bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+# How do we categorize the negated bigrams within our preexisting
+# sentiment categories: "anger" "joy" etc.?
+
+# I will use a different lexicon that weights sentiments numerically
+# to simply flip the sign on negated sentiment words. However, the ratios
+# are still capturing the good in "not good" rather than discounting them.
+
+# Bring in afinn sentiments
+afinn <- get_sentiments("afinn")
+
+# ----------------------------------------
+
+# 1. Use join the afinn sentiment scores to the bigrams_sep df
+# (contains multiple rows per review bc each review is split into
+# 2-word combos)
+
+
+# 2. Mutate: set the negated bigrams to the opposite of its recognized
+# sentiment, and the normal bigrams to the usual sentiment
+
+# 3. Group_by and Summarise: there are too many observations per 
+# review, so collapse the observations by review ID, then take their mean
+# sentiment score.
+afinn_scores <- bigrams_sep %>%
+  inner_join(afinn, by = c(word2 = "word")) %>%
+  mutate(ifelse(word1 %in% negations,
+                -value, 
+                value)) %>%
+  group_by(X) %>%
+  summarise(score = mean(value))
+
+
+# JOIN THE AFINN SCORES TO YELP_TRAIN df
+yelp_train <- left_join(yelp_train, afinn_scores, by = "X")
+```
+
+## Write to csv
+```{r}
+write.csv(yelp_train, "DATA/training_newpred.csv")
+```
