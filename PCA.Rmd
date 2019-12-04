@@ -35,6 +35,10 @@ head(yelp_sent1)
 ```{r}
 pca1 <- prcomp(yelp_sent1, scale = TRUE)
 names(pca1)
+pcad <- pca1$x
+pcad <- as.matrix(pcad)
+pc1 <- pcad[, 1]
+pc2 <- pcad[, 2]
 ```
 
 
@@ -80,4 +84,32 @@ fviz_pca_biplot(pca1, repel = TRUE,
                 col.ind = "#696969"  # Individuals color
                 )
 ```
+
+
+```{r}
+dfcluster <- cbind(pc1, pc2)
+head(dfcluster)
+
+set.seed(9)
+k<- c(2, 3, 4)
+#dk <- d %>% select(-State)
+cluster2 <- kmeans(yelp_sent1, 2)
+cluster3 <- kmeans(yelp_sent1, 3)
+cluster5 <- kmeans(yelp_sent1, 5)
+
+framcluster <- as.data.frame(dfcluster)
+framcluster$cluster <- cluster2$cluster
+framcluster$cluster3 <- cluster3$cluster
+framcluster$cluster5 <- cluster5$cluster
+framcluster$stars <- yelp_sent$stars
+head(framcluster)
+```
+
+
+```{r}
+#ggplot(framcluster, aes(x=pc1, y=pc2)) + geom_point(aes(col = as.factor(cluster2))) +geom_text(aes(label=stars),hjust=0, vjust=0, size = 2) + xlim(-15, 5) + ylim(0, 20)
+ggplot(framcluster, aes(x=pc1, y=pc2)) + geom_point(aes(col = as.factor(cluster3))) +geom_text(aes(label=stars),hjust=0, vjust=0, size = 2) + xlim(-15, 5) + ylim(0, 20)
+ggplot(framcluster, aes(x=pc1, y=pc2)) + geom_point(aes(col = as.factor(cluster5)), alpha = .4) +geom_text(aes(label=stars),hjust=0, vjust=0, size = 2) + xlim(-15, 5) + ylim(0, 20)
+```
+
 
