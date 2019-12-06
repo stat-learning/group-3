@@ -12,7 +12,6 @@ Data source: https://www.kaggle.com/yelp-dataset/yelp-dataset/version/6#yelp_rev
 
 ## Packages:
 ```{r}
-library(jsonlite)
 library(tidytext)
 library(stringr)
 library(wordcloud)
@@ -63,16 +62,18 @@ This method of feature analysis draws from the tidytext package and resource: ht
 # words that do not convey sentiment
 dropStopwords <- function(string){
   # Remove all punctuation except apostrophes & replace with " "
-  noPunc <- gsub("[^[:alnum:][:space:]']", " ", string) 
+  noPunc <- gsub("[^[:alnum:][:space:]']", "", string) 
+  noPunc <- gsub("\t|\n|[[:digit:]]+", "", noPunc)
+
   # Split the larger string by space using strsplit()
   splitBySpace <- unlist(strsplit(noPunc, split = " "))
   # Remove missing chunks
-  splitBySpace <- splitBySpace[splitBySpace != ""]
+  splitBySpace <- tolower(splitBySpace[splitBySpace != ""])
   todrop <- get_stopwords() # query dictionary of stopwords
   todrop <- todrop[[1]]
   
-  # remove stop words and wrap as lowercase
-  tolower(splitBySpace[!splitBySpace %in% todrop])
+  # remove stop words
+  splitBySpace[!splitBySpace %in% todrop]
   
 }
 
@@ -123,36 +124,6 @@ We also include ratios for each, so `joyratio` is the total number of joy words 
 ```{r}
 # Glimpse the data set to examine the predictors
 glimpse(yelp_train)
-```
-
-
-### Testing on tiny data set
-```{r, eval = FALSE}
-yelp.small <- yelp_train[1:3,]
-yelp.small$prunedtext <- lapply(yelp.small$text, FUN = dropStopwords)
-
-yelp.small$prunedtext
-
-# Matching sentiments from the NRC dictionary
-nrc$sentiment <- as.factor(nrc$sentiment)
-
-yelp.small %>% 
-  mutate(joy = nrcSentimentCount("fear", prunedtext))
-
-# Grab all of the sentiments from for testing
-sentiments <- levels(as.factor(nrc$sentiment))
-
-# Generate new columns that count the number of times each sentiment word appears
-yelp.small$joy <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "joy")
-yelp.small$anger <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
-yelp.small$fear <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "fear")
-yelp.small$positive <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "positive")
-yelp.small$negative <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "negative")
-yelp.small$surprise <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "surprise")
-yelp.small$disgust <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "disgust")
-yelp.small$trust <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "trust")
-yelp.small$anticipation <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anticipation")
-yelp.small$anger <- sapply(yelp.small$prunedtext, nrcSentimentCount, senti = "anger")
 ```
 
 
