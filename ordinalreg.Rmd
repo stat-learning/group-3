@@ -1,0 +1,109 @@
+---
+title: "multinomialreg"
+author: "Claire Jellison"
+date: "12/7/2019"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(MASS)
+library(glm.predict)
+library(tokenizers)
+library(stringr)
+```
+
+Source: https://rpubs.com/rslbliss/r_logistic_ws
+https://cran.r-project.org/web/packages/glm.predict/glm.predict.pdf
+
+```{r}
+dfraw <- read_csv("DATA/raw_words.csv") #data with self identified words 
+dfsent <- read_csv("DATA/training_newpred.csv")
+```
+
+```{r}
+dfjoin <- full_join(dfraw, dfsent, by = "X1")
+```
+
+```{r}
+
+nSentences <- function(string){
+  length(tokenize_sentences(string))
+}
+
+# Use tokenize_sentences() function to separate the long body of text into
+# sentence segments. 
+sentences <- tokenize_sentences(as.character(dfjoin$text))
+dfjoin$sentences <- sapply(sentences, length)
+
+#-----------------------------------------------------
+# Punctuation mark frequency
+
+# Use the stringr library to count the number of punctuation marks of all
+# types, designated by the "[[:punct:]]" pattern and save in new var `punct`.
+dfjoin$punct <- str_count(as.character(dfjoin$text),
+                              "[[:punct:]]")
+
+dfjoin$exclaim <- str_count(as.character(dfjoin$text),
+                              "!")
+```
+
+#Ordinal logistic regression
+```{r}
+dfjoin$starsfactor <- factor(dfjoin$starsfactor)
+olog <- polr(starsfactor ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + sentences + punct + nwords + exclaim , data = dfjoin)
+summary(olog)
+```
+
+```{r}
+coefsolog <- coef(olog)
+coefsolog
+```
+
+#Find the p- values
+```{r}
+# Find the p-value for a t-value of 18.87567
+n <- nrow(dfjoin)
+pjoy <- pt(18.87567, n - 9, lower.tail=FALSE)*2
+pjoy
+```
+
+
+# Get test MSE 
+
+```{r}
+dftest <- read.csv("DATA/yelp_test_wpred.csv")
+```
+
+```{r}
+dftest$starsfactor <- dftest$stars
+dftest$starsfactor <- factor(dftest$starsfactor)
+```
+
+```{r}
+opredictedvals <- predict(olog, newdata = dftest)
+#predict(house.plr, newdata = data.frame(Infl = "Low", Type = "Tower", Cont = "Low"))
+opredictedvals <- as.integer(predictedvals)
+head(opredictedvals)
+```
+
+
+```{r}
+attr(terms(olog$model), "term.labels")
+```
+
+
+```{r}
+dftest$starsfactor <- as.integer(dftest$starsfactor)
+actualvals <-  dftest$starsfactor
+mse_olog <- mean((opredictedvals - actualvals)^2)
+mse_olog
+```
+
+```{r}
+#misclassification
+conf_linear <- table(dftest$starsfactor, predictedvals)
+misc_linear <- 1 - (sum(diag(conf_linear)) / sum(conf_linear))
+misc_linear
+```
+
