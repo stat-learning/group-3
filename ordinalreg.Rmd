@@ -23,6 +23,7 @@ dfsent <- read_csv("DATA/training_newpred.csv")
 
 ```{r}
 dfjoin <- full_join(dfraw, dfsent, by = "X1")
+dfjoin <- na.omit(dfjoin)
 ```
 
 ```{r}
@@ -100,17 +101,20 @@ mse_olog
 
 
 ```{r}
-predictedstars <- predict(olog, dftest, type="p")  # predict the probabilites
-head(predictedstars)
+predictedstarstest <- predict(olog, dftest, type="p")  # predict the probabilites
+predictedstarstrain <- predict(olog, dfjoin, type="p") 
+head(predictedstarstrain)
 ```
 
+
+
 ```{r}
-predcheat <- rep(NA, nrow(predictedstars))
+predcheat <- rep(NA, nrow(predictedstarstrain))
 predictcheat <- function(predictedstars) { 
   for (i in 1:nrow(predictedstars)){
     max <- which.max(predictedstars[i,])
     val <- predictedstars[i,max]
-    if (max == 1 & val < .29) { 
+    if (max == 1 & val < .28) { 
       predcheat[i] <- 2
     }
     else if (max == 4 & val < .25) { 
@@ -121,8 +125,8 @@ predictcheat <- function(predictedstars) {
     }
   predcheat
 }
-predcheat <- predictcheat(predictedstars)
-predcheat
+predcheat <- predictcheat(predictedstarstrain)
+
 ```
 
 
@@ -135,11 +139,44 @@ misc_olog <- 1 - (sum(diag(conf_olog)) / sum(conf_olog))
 misc_olog
 ```
 
-
 ```{r}
-conf_olog_cheat <- table(dftest$starsfactor, predcheat)
+conf_olog_cheat <- table(dfjoin$starsfactor, predcheat)
 conf_olog_cheat
 misc_olog_cheat <- 1 - (sum(diag(conf_olog_cheat)) / sum(conf_olog_cheat))
 misc_olog_cheat
 ```
+
+
+```{r}
+
+predcheattest <- rep(NA, nrow(predictedstarstest))
+predictcheat <- function(predictedstars) { 
+  for (i in 1:nrow(predictedstars)){
+    max <- which.max(predictedstars[i,])
+    val <- predictedstars[i,max]
+    if (max == 1 & val < .28) { 
+      predcheattest[i] <- 2
+    }
+    else if (max == 4 & val < .25) { 
+      predcheattest[i] <- 3
+    }
+    else {
+    predcheattest[i] <- max}
+    }
+  predcheattest
+}
+predcheattest <- predictcheat(predictedstarstest)
+
+```
+
+
+
+```{r}
+conf_olog_cheat_test <- table(dftest$starsfactor, predcheattest)
+conf_olog_cheat_test
+misc_olog_cheat_test <- 1 - (sum(diag(conf_olog_cheat_test)) / sum(conf_olog_cheat_test))
+misc_olog_cheat_test
+```
+
+
 

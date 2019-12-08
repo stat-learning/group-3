@@ -42,6 +42,19 @@ Linear Model:
 
 4. Test Misclassification rate
 
+Ordered Logistic Model: 
+
+1. Variable Importance 
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from columns of confusion matrix)
+  ii.Type 2 error rate for each class (from rows of confusion matrix)
+  
+4. Test Misclassification rate
+
+
 LDA:
 
 1. Variable Importance
