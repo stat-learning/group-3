@@ -19,7 +19,6 @@ test$starsfactor <- as.factor(test$starsfactor)
 
 
 #num_only <- select(num_only,-c("X", "X1", "stars")
-test <- test[,-c(1:3)]
 
 #bagged trees:
 bag <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only) - 1)
@@ -65,9 +64,11 @@ t2_rate_rf <- mean(t2rf)
 
 
 #boosted trees
-boost <- gbm(data = training, starsfactor ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
-pred_boost <- predict(object = boost, newdata = test, type = "response")
-conf_boost <- table(test$starsfactor, pred_boost)
+boost <- gbm(data = num_only, starsfactor ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
+pred_boost <- predict(object = boost, newdata = test, type = "response", n.trees = 500)
+predmat <- as.matrix(pred_boost[1:nrow(test),1:5,])
+predclass <- colnames(predmat)[max.col(predmat,ties.method="first")]
+conf_boost <- table(test$starsfactor, predclass)
 misc_boost <- 1 - (sum(diag(conf_boost)) / sum(conf_boost))
 misc_boost
 
@@ -139,10 +140,9 @@ num_only$stars <- as.numeric(num_only$starsfactor)
 num_only <- num_only[,-c(1:2,8,30)]
 
 set.seed(12)
-bool <- sapply(yelp_train, is.numeric)
+bool <- sapply(yelp_test, is.numeric)
 test <- na.omit(yelp_test[,bool])
 test$stars <- as.numeric(test$starsfactor)
-test <- test[,-c(1:2,8)]
 
 #bagged model
 bag2 <- randomForest(data = num_only, stars~., ntree = 500, mtry = ncol(num_only) - 1)
@@ -218,14 +218,14 @@ t2_rate_rf2 <- mean(t2rf2)
 
 
 #boosted trees
-boost2 <- gbm(data = training, starsfactor ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
-pred_boost2 <- predict(object = boost, newdata = test, type = "response")
+boost2 <- gbm(data = num_only, stars ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
+pred_boost2 <- predict(object = boost2, newdata = test, type = "response", n.trees = 500)
 adj_boost <- round(pred_boost2)
-for (i in length(adj_boost)) {
+for (i in 1:length(adj_boost)) {
   if (adj_boost[i] > 5) {
     adj_boost[i] <- 5
   }
-  if (adj_boost < 1) {
+  if (adj_boost[i] < 1) {
     adj_boost[i] <- 1
   }
 }
@@ -234,7 +234,7 @@ mse_boost2 <- mean((adj_boost - test$stars)^2)
 mse_boost2
 
 #misclassification
-conf_boost2 <- table(test$starsfactor, adj_boost)
+conf_boost2 <- table(test$stars, adj_boost)
 misc_boost2 <- 1 - (sum(diag(conf_boost2)) / sum(conf_boost2))
 misc_boost2
 
@@ -255,7 +255,7 @@ t2_rate_boost2 <- mean(t2boost2)
 
 
 #linear regression
-basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + nwords + n, data = yelp_train)
+basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + nwords + n, data = num_only)
 pred_linear <- predict(object = basiclinear, newdata = test, type = "response")
 adj_linear <- round(pred_linear)
 for (i in length(adj_linear)) {
