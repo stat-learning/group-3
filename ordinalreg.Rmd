@@ -14,7 +14,7 @@ library(stringr)
 ```
 
 Source: https://rpubs.com/rslbliss/r_logistic_ws
-https://cran.r-project.org/web/packages/glm.predict/glm.predict.pdf
+https://stats.idre.ucla.edu/r/dae/ordinal-logistic-regression/
 
 ```{r}
 dfraw <- read_csv("DATA/raw_words.csv") #data with self identified words 
@@ -51,6 +51,7 @@ dfjoin$exclaim <- str_count(as.character(dfjoin$text),
 #Ordinal logistic regression
 ```{r}
 dfjoin$starsfactor <- factor(dfjoin$starsfactor)
+dfjoin$starsfactor <- factor(dfjoin$starsfactor, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
 olog <- polr(starsfactor ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + sentences + punct + nwords + exclaim , data = dfjoin)
 summary(olog)
 ```
@@ -60,12 +61,12 @@ coefsolog <- coef(olog)
 coefsolog
 ```
 
-#Find the p- values
+
 ```{r}
-# Find the p-value for a t-value of 18.87567
-n <- nrow(dfjoin)
-pjoy <- pt(18.87567, n - 9, lower.tail=FALSE)*2
-pjoy
+(ctable <- coef(summary(olog)))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+(ctable <- cbind(ctable, "p value" = p))
+
 ```
 
 
@@ -78,32 +79,67 @@ dftest <- read.csv("DATA/yelp_test_wpred.csv")
 ```{r}
 dftest$starsfactor <- dftest$stars
 dftest$starsfactor <- factor(dftest$starsfactor)
+dftest$starsfactor <- factor(dftest$starsfactor, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
 ```
 
 ```{r}
 opredictedvals <- predict(olog, newdata = dftest)
 #predict(house.plr, newdata = data.frame(Infl = "Low", Type = "Tower", Cont = "Low"))
-opredictedvals <- as.integer(predictedvals)
+#opredictedvals <- as.integer(predictedvals)
 head(opredictedvals)
 ```
 
 
 ```{r}
-attr(terms(olog$model), "term.labels")
-```
-
-
-```{r}
+opredictedvals <- as.integer(predictedvals)
 dftest$starsfactor <- as.integer(dftest$starsfactor)
 actualvals <-  dftest$starsfactor
 mse_olog <- mean((opredictedvals - actualvals)^2)
 mse_olog
 ```
 
+
+```{r}
+predictedstars <- predict(olog, dftest, type="p")  # predict the probabilites
+head(predictedstars)
+```
+
+```{r}
+predcheat <- rep(NA, nrow(predictedstars))
+predictcheat <- function(predictedstars) { 
+  for (i in 1:nrow(predictedstars)){
+    max <- which.max(predictedstars[i,])
+    val <- predictedstars[i,max]
+    if (max == 1 & val < .29) { 
+      predcheat[i] <- 2
+    }
+    else if (max == 4 & val < .25) { 
+      predcheat[i] <- 3
+    }
+    else {
+    predcheat[i] <- max}
+    }
+  predcheat
+}
+predcheat <- predictcheat(predictedstars)
+predcheat
+```
+
+
+
 ```{r}
 #misclassification
-conf_linear <- table(dftest$starsfactor, predictedvals)
-misc_linear <- 1 - (sum(diag(conf_linear)) / sum(conf_linear))
-misc_linear
+conf_olog <- table(dftest$starsfactor, predictedvals)
+conf_olog
+misc_olog <- 1 - (sum(diag(conf_olog)) / sum(conf_olog))
+misc_olog
+```
+
+
+```{r}
+conf_olog_cheat <- table(dftest$starsfactor, predcheat)
+conf_olog_cheat
+misc_olog_cheat <- 1 - (sum(diag(conf_olog_cheat)) / sum(conf_olog_cheat))
+misc_olog_cheat
 ```
 
