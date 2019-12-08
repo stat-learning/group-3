@@ -228,11 +228,23 @@ words1 <- yelp_train %>%
   filter(stars == 1) %>%
   pull(prunedtext)
 
+words2 <- yelp_train %>%
+  filter(stars == 2) %>%
+  pull(prunedtext)
+
+words3 <- yelp_train %>%
+  filter(stars == 3) %>%
+  pull(prunedtext)
+
 # we unlist() the above vectors to get big pile o' 
 # words across all reviews since wordcloud() takes character vectors as input, 
 # not lists
 wordcloud(unlist(words5), min.freq = 10, max.words = 30)
 wordcloud(unlist(words1), min.freq = 10, max.words = 30)
+wordcloud(unlist(words3), min.freq = 10, max.words = 30)
+wordcloud(unlist(words2), min.freq = 10, max.words = 30)
+
+unlist(yelp_train[101,]$prunedtext1)
 ```
 Idea: could think about coloring the words by sentiment.
 
