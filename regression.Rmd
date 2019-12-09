@@ -10,42 +10,124 @@ knitr::opts_chunk$set(echo = TRUE)
 library(jsonlite)
 library(tidytext)
 library(stringr)
-library(wordcloud)
 library(dplyr)
 library(ggplot2)
 library(GGally)
+library(tokenizers)
+library(dplyr)
 ```
 
 ```{r}
-yelp_train <- read.csv("DATA/withlanguage.csv")
+yelp_train <- read.csv("DATA/training_newpred.csv")
+yelp_train <- na.omit(yelp_train)
 ```
 
 ```{r}
 head(yelp_train)
-# Remove non-English reviews
-yelp_train_en <- yelp_train %>%
-  filter(language == "english" | language == "scots")
-```
-
-#Adding the number of words as column
-```{r}
-yelp_train <- mutate(yelp_train, numwords = str_count(yelp_train$text, " "))
-#yelp_train <- mutate(yelp_train, numwordscheck = str_count(yelp_train$text, '\\w+'))
-```
-
-```{r}
-yelp_train$numwords2 = yelp_train$numwords^2
 ```
 
 
 ```{r}
-
-basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + numwords + numwords2, data = yelp_train)
+basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + nwords + sentences + punct + exclaim + score, data = yelp_train)
 summary(basiclinear)
 ```
+### Switch predictors to round to get a missclassification rate
+
+```{r}
+yelp_test <- read.csv("DATA/yelp_test_wpred.csv")
+yelp_test <- na.omit(yelp_test)
+```
 
 
 ```{r}
-
+predictandroundtoint <- function(model, data){
+  predvalues <- predict(model, data) 
+  predvaluesdf <- as.data.frame(predvalues)
+  rows <- nrow(predvaluesdf)
+  for (i in  1:rows) { 
+    if (predvaluesdf[i, ] > 5) {predvaluesdf[i, ] = 5}
+    if (predvaluesdf[i, ] < 1) {predvaluesdf[i, ] = 1}
+    else { predvaluesdf[i, ] <- round(predvaluesdf[i, ], digits = 0)}
+    }
+  vec <- predvaluesdf
+  vec
+}
 ```
+
+
+```{r}
+roundedpred <- predictandroundtoint(basiclinear, yelp_test)
+head(roundedpred)
+```
+
+```{r}
+conf <- table(yelp_test$stars, roundedpred[,1])
+conf 
+misclass <- 1 - (sum(diag(conf)) / sum(conf)) 
+misclass
+```
+
+#Now for the bagged model 
+
+```{r}
+dfraw <- read.csv("DATA/raw_words.csv")
+```
+
+
+```{r}
+baglinear <- lm(response ~ ., data = dfraw)
+summary(baglinear)
+```
+
+
+```{r}
+dfrawtest <- read.csv("DATA/yelp_test_raw.csv")
+test_senti <- read.csv("DATA/yelp_test_wpred.csv")
+dfrawtest$stars <- test_senti$starsfactor
+summary(dfrawtest$stars)
+```
+
+
+
+```{r}
+roundedpredraw <- predictandroundtoint(baglinear, dfrawtest)
+head(roundedpredraw[,1])
+```
+
+```{r}
+conf <- table(dfrawtest$stars, roundedpredraw[,1])
+conf 
+misclass <- 1 - (sum(diag(conf)) / sum(conf)) 
+misclass
+```
+
+
+
+
+
+```{r}
+#k-fold cross validation
+crossval <- function(dat,k) {
+partition_index <- rep(1:k, each = nrow(dat)/k) %>% #Assigns a number to every obs in dat
+  sample()
+dat <- dat[1:length(partition_index),] #prevents extraneous rows
+misclass_i <- vector(length = k) #preallocates memory for a vector
+dat$partition_index <- partition_index
+for (i in 1:k){
+  test <- dat[which(dat$partition_index == i),] #get test data
+  training <- dat[which(dat$partition_index != i),] #get training data
+  pred <- predictandroundtoint(basiclinear, test)
+  conf <- table(test$stars, pred)
+  misclass_i[i] <- 1 - (sum(diag(conf)) / sum(conf))   #Fills in vector of length K
+}
+misclass <- mean(misclass_i)
+misclass
+}
+
+crossval(yelp_train,5)
+
+#____ with the new predictors
+```
+
+
 
