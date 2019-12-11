@@ -2,7 +2,10 @@
 title: "TechnicalReport"
 author: "Group 3"
 date: "12/2/2019"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 
@@ -11,14 +14,90 @@ Your technical report should be an .Rmd file that contains the following section
 ### Abstract
 A brief overview of the area that you’ll be investigating, the research question(s) of interest, your approach to analysis, and the general conclusions.
 
+The Yelp dataset includes over 5 million text reviews from businesses around the world. We aim to predict the number of stars a reviewer gives a business from the text of the review itself. To do so, we take two approaches: sentiment dictionaries and learning from the data itself.
+
+To glean meaning from the words a reviewer uses, we turned first to the NRC sentiment dictionary. This is a basket of over 14,000 words manually coded into 9 sentiments based on surveys from human reviewers. In this way, each word on its own (devoid of surrounding context) has an a priori meaning determined solely by the categories the sample of reviewers chose. We also assign rankings based upon the Afinn dictionary for every pair of words, or bigram, within a review. Afinn uses a numeric scale so that we can easily flip the score of any negated word pair such as "not good."  Our misclassification rates (MCR) ranged between 0.473 and 0.535, attributed in part to high correct classification rates for 1 and 5 star reviews but abysmal correct classifications for 2 and 3 star reviews. Tree-based methods tended to perform best    
+
+
 ### Introduction
 Overview of the setting of the data, existing theories/models (particularly if you are working in a descriptive/inferential setting), and your research questions.
+
+Our task was inherently prediction-based, rather than a question of inference. Can statistical learning models learn to process language used in Yelp reviews? So the start we searched for predictors from the data. Generally after reading a review, guessing the number of stars they gave is easy.  So the analysis below can be considered an exercise in natural language processing.  
 
 ### The Data
 Where does the data come from? How many observations? How many variables? What does each observation refer to (what is the observational unit)? What sorts of data processing was necessary to get the data in shape for analysis?
 
+We turn to the rich Yelp Kaggle data set, which contains 5,200,000 reviews and the variables 
+
+- text: contains the text of the review as a string
+
+- business_id: identifier for the business being reviewed, character
+
+- review_id: unique identifier for each review (observations are uniquely identified by this), character
+
+- user_id: identifier for each user submitting a review, character
+
+- cool: number of people who found the review "cool", numeric
+
+- funny: number of people who found the review "funny", numeric
+
+- useful: number of people who found the review "useful", numeric
+
+Though there are interesting extenstions in the the other variables given in the raw data set, all of predictors for this analysis come from transformations to the `text` variable.
+
+The Yelp data set's size gives us plenty of test data to work with, so we create four different data sets to fit (training) then assess (test) our model. So generally, we need not use cross validation to estimate our models' test errors. 
+
+| Feature Extraction Approach | Training | Test |
+|:---------:|:---------:|:-------:|
+| Sentiment dictionaries | 52,945 x 37 table | 9,850 x 37 table |
+| Bag of words | 20,000 x 2,004 table | 9,850 x 2,004 table | 
+
+```{r}
+train_senti <- read.csv("DATA/train_senti.csv")
+train_bag <- read.csv("DATA/train_bag.csv")
+test_senti <- read.csv("DATA/test_senti.csv")
+test_bag <- read.csv("DATA/test_bag.csv")
+
+library(dplyr)
+library(ggplot2)
+```
+
+
+
 ### Exploratory Data Analysis
 Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
+
+
+```{r fig1, echo=FALSE, fig.cap="\\label{fig:fig1}Distribution of the Response"}
+ggplot(train_senti, aes(starsfactor)) + 
+  geom_histogram(binwidth=1) + 
+  ggtitle("Bar Graph of Stars")
+nrow(train_senti %>% filter(stars == 2 | stars == 3)) / nrow(train_senti)
+
+```
+From Figure \ref{fig:fig1} we can see that our sample of the Yelp data set is left skewed. The bulk of the reviews are clustered at 5, 4, then 1. Two and three-star reviews jointly comprise only 19.7% of all reviews. Therefore, we might expect classification models to do worse overall at predicting these categories. Considering that 2-3 star "middle-of-road" reviews may lack strong sentiment words at either end of the spectrum, we hypothesize that our sentiment libraries may not predict experiences that were "just ok."   
+
+```{r}
+# Disgust
+ggplot(train_senti, aes(starsfactor, disgustratio)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Distribution of disgust words")
+
+# Negativity
+ggplot(train_senti, aes(stars, negativeratio)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Distribution of negative words")
+
+
+```
+
+```{r fig2, echo = FALSE, fig.cap="\\label{fig:fig2}Scatter of Stars"}
+ggplot(train_senti, aes(x=positive, y = disgust)) + 
+  geom_jitter(aes(color = stars)) + 
+  ggtitle("Scatter of Stars") 
+```
+In Figure \ref{fig:fig2} we can see that positively identified words are correlated with higher levels of stars, whereas the cluster of dark blue indicates that the presence of more disgust words in proportion to the total number of words is correlated with lower stars. 
+
 
 ### Modeling
 Construct (descriptive and/or predictive) (classification and/or regression) models that address your research questions. You are encouraged to fit many different classes of models and see how they compare in terms the bias/variance tradeoff (do you have a Rashomon effect going on?). Also be sure to guard against overfitting through cross-validation or shrinkage/penalization (don’t forget about ridge regression and the lasso).
@@ -123,6 +202,7 @@ BOOSTED TREES:
 
 4. Test Misclassification rate
 
+#### Which loss function can we trust to evaluate our models?
 
 
 ### References
