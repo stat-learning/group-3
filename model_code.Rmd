@@ -1,0 +1,161 @@
+---
+title: "Ratios versus counts"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r cars}
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df.counts <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.ratios <- train_senti %>%
+  select(score, stars, sentiments, 
+         sentences, punct, exclaim, nwords)
+n <- nrow(df.counts)
+
+boost.counts <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.counts <- predict(boost.counts, newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+mse.counts <- mean((yhat.counts - df.counts[1:n,]$stars)^2)
+
+
+
+boost.ratios <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.ratios <- predict(boost.ratios, 
+                      newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+
+mse.ratios <- mean((yhat.ratios - df.ratios[1:n,]$stars)^2)
+
+mse.ratios
+mse.counts
+```
+
+## Bag of words: Tree MSEs
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+df <- train_bag %>% 
+  select(-c(X.1, X))
+
+df.test <- test_bag %>% 
+  select(-c(X.1, X))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(STARS)
+x.test <- df.test %>%
+  select(-c(STARS))
+#-----------------------------------------------------
+
+n <- 1000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "regression",
+                   STARS~., 
+                   xtest = x.test[, 1:p],
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = p / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.bag <- randomForest(data = df[1:n, 1:(p+1)], 
+                       type = "regression",
+                       STARS~., 
+                       xtest = x.test[, 1:p],
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = p)
+
+
+mse.df.bag <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses.bag <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Bag of words data: Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses.bag
+```
+
+## Bag of words: Tree MCRs
+
+
+## Sentiment: Tree MSEs
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.test <- test_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(stars)
+x.test <- df.test %>%
+  select(-c(stars))
+```
+```
+
+## Sentiment: Tree MCRs
+
+
+
+
+
+
+
+
