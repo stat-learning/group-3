@@ -11,4 +11,9 @@ Welcome to our Yelp! project! This project is completed, and the final report is
 **Yelp text analysis** Can we predict the stars a reviewer gives from the sentiments expressed in the text review itself? 
     <https://www.kaggle.com/yelp-dataset/yelp-dataset>.
 
+**Directory of files**
+`DATA` contains 2 test and 2 training data sets based upon our two feature extraction approaches
 
+`images` contains all figures and tables referenced within the technical report
+
+`junk` contains all of our scratchwork and pieces of code that then comprised our technical report and preliminary modeling efforts 
