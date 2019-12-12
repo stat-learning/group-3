@@ -85,7 +85,7 @@ Cleaning process:
 2) Remove all non-English reviews using the `textcat` package.
 3) Tokenize the words (used `stringr` library to split by space, and grepl function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
 4) Join words from the sentiment categories in NRC and count number of words in each review by sentiment that are categorized into a sentiment.
-
+            
 
 This resulted a dataset with the dimensions listed above. 
 ```{R}
