@@ -1,6 +1,6 @@
 ---
-title: "linearclean"
-author: "Claire Jellison"
+title: ""
+author: 
 date: "12/11/2019"
 output: pdf_document
 ---
