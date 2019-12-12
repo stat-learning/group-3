@@ -58,6 +58,7 @@ The Yelp data set's size gives plenty of test data to work with, so we create fo
 | Sentiment dictionaries | 52,945 x 37 table | 9,850 x 37 table |
 | Bag of words | 20,000 x 2,004 table | 9,850 x 2,004 table | 
 
+
 ```{r, cache = TRUE, echo=FALSE}
 ctrain_bag <- read.csv("DATA/train_bag.csv")
 train_senti <- read.csv("DATA/train_senti.csv")
@@ -126,6 +127,7 @@ glimpse(x)
 
 - `anticipation`: 
 
+- `joyratio`: the number of "joy" words divided by the number of non-stop words
 
 ```{r fig1, echo=FALSE, fig.cap="\\label{fig:fig1}Distribution of the Response", cache=TRUE}
 ggplot(train_senti, aes(starsfactor)) + 
@@ -209,7 +211,7 @@ ggplot(data = train_senti, aes(x = nwords, y = stars)) +
 ```
 
 #### Natural clustering into 5 categories using K-means
-```{}
+```{r}
 #  k-means visualization
 ```
 
@@ -220,9 +222,17 @@ This will be the most extensive section and will include your results as well.
 
 To answer one of our initial questions, proper treatment of ordered classes, we fit a series of classification and regression models. We had three main types of models:
 
+## RANDOM FOREST v. BAGGED MODELS:
 
+Random forests can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. The table below shows our misclassification error for the best tree of each, indicating that the random forest did not improve our misclassification rate as much as expected for the bag of words model, doing even worse with the test MCR.  
 
+Bag of Words model - Misclassification Rate 
+| m | OOB error | Test | NTrees |
+|:---------|:---------:|:---------:|:-------:|
+| Bagged model (m = p) |  0.46 | 0.6028 | 92 |
+| Random forest m = p/3| *0.4476* | 0.611 | 100 | 
 
+<<<<<<< HEAD
 ### Discussion
 Review the results generated above and sythensize them in the context from which the data originated. What do the results tell your about your original research question? Are there any weaknesses that you see in your analysis? What additional questions would you explore next?
 
@@ -240,77 +250,16 @@ RANDOM FOREST v. BAGGED MODELS:
 
 Benefits - can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. 
 
+With an out of bag error rate of 0.45, the random forest bag of words model represented an improvement over the sentiment library. 
+
+
+The confusion matrix below is our best, but not by much. The matrix reveals the prevailing shortcoming across all of our tree based model: inability to predict 2 and 3 star reviews. It is possible that the misclassification error may not be as useful a metric as the MSE to evaluate our models, stemming from a lack of variation between 2 and 3 star reviews, or that we need to extract better predictors.    
+
 ```{r}
-# Code below ensures that we don't have any missingness or non-numeric predictors
-# in the dfs used to fit the model
-cols <- colnames(train_senti)
-drop <- grepl("ratio|X|id|funny|cool|useful", cols)
-cols.counts <- setdiff(cols, cols[drop])
-
-sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
-
-df <- train_senti %>% 
-  select(score, stars, cols.counts) %>%
-  select(-c(text, date, starsfactor, language))
-
-df.test <- test_senti %>% 
-  select(score, stars, cols.counts) %>%
-  select(-c(text, date, starsfactor, language))
-
-row.has.na <- apply(df, 1, function(x){any(is.na(x))})
-df <- df[!row.has.na, ]
-
-row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
-df.test <- df.test[!row.has.na, ]
-
-y.test <- df.test %>%
-  pull(stars)
-x.test <- df.test %>%
-  select(-c(stars))
-```
-
-### Fitting Random Forest and Bagged Models
-
-#### Sentiment Dictionary: 
-```{r}
-set.seed(120)
-# select only some of the observations for run time concerns
-n <- 1000
-# Tree-based methods ~ Regression
-rf <- randomForest(data = df[1:n,], 
-                   type = "regression",
-                   stars~., 
-                   xtest = x.test,
-                   ytest = y.test,
-                   ntree = 100, 
-                   mtry = ncol(df) / 3)
-
-# specify x.test and y.test arguments to calculate a test error
-bagged <- randomForest(data = df[1:n,], 
-                       type = "regression",
-                       stars~., 
-                       xtest = x.test,
-                       ytest = y.test,
-                       ntree = 100, 
-                       mtry = ncol(df))
-
-
-mse.df <- data.frame(rfs = rf$mse, 
-                     bagged = bagged$mse,
-                     rfs_test = rf$test$mse,
-                     bagged_test = bagged$test$mse)
-                     
-
-forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
-  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
-  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
-  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
-  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
-  labs(title = "Error across bagged and random forest regression models") +
-  xlab("Number of trees") +
-  ylab("Error")
-  
-forest.mses
+# define and get rf.bag.class
+rf.bag.class$confusion %>%
+  kable(caption = "Confusion matrix - bag of words, random forest") %>%
+  kable_styling()
 
 ```
 As we can see the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we kept the 100-tree model. 
@@ -325,8 +274,36 @@ importance.bag %<>%
   arrange(desc(IncNodePurity)) %>% 
   kable() %>%
   kable_styling()
-
 ```
+Sentiment model - Misclassification Rate
+| m | OOB error | Test | NTrees |
+|:---------|:---------:|:---------:|:-------:|
+| Bagged model (m = p) | 0.497  | 0.483 | 71 |
+| Random forest m = p/3| 0.490 | 0.476 | 85 | 
+
+#### Sentiment Dictionary (MSE): 
+
+![Sentiment: Test and OOB MSE across n-trees](images/mse_plots_senti.png)
+
+As we can see from the figure above, the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we went with the 100-tree model. 
+
+![Sentiment: Test and OOB MSE across n-trees](images/bag of words mses - trees.png)
+
+From the figure above, it is clear that when the bag of words data rf and bagged models underperformed with the test set. However, is extracting estimating with the top 500 training words on an entirely new test data set tractable? Because the predictors were learned from the data itself by taking the top 500 words, they may be less useful when applied to a wholly different data set. We might also think that using 500 predictors risked overfitting the model(??). The tables below shows the variable importances of each of the words in the bag of words data set for the best fitting random forest model. 
+
+Note: we only used the first 5,000 of the 20,000 observations in the bag of words model to fit the tree models. 
+
+So by the MSE metric, the winner is the random forest model on the sentiment dictionary. 
+
+
+### Discussion
+Review the results generated above and sythensize them in the context from which the data originated. What do the results tell your about your original research question? Are there any weaknesses that you see in your analysis? What additional questions would you explore next?
+
+We took two main approaches in our modeling. First, we relied on pre-created dictionaries for feature extraction. This has the advantage of given structure to our analysis. Our models did not have to learn how to group words together - the sentiment dictionaries did it for them. If these groupings are natural, it would reduce the dimensionality of the data without loss of information. The principle component analysis that we ran lent some credence to the idea that much of the variability in the data was captured by the "sentiment" that words were conveying. However, if these groupings do not capture all of the variation in the relationship between the words and the star ratings, the model could underperform.
+
+Thus, our second modeling approach was to let the data teach us how to group the words. Each of the most commonly used 1000 words was coded as an integer variable indicating how many times the word was used in the text. The algorithm had no a priori information about the meaning of the words, nor about their likely groupings. This sort of modeling made the most sense to do with algorithms that do well with high dimensional predictor sets, such as ensembles of trees. Whereas individual trees and parametric models would be liable to have high variance with a high number of predictors, random forests get around this by taking bootstrap samples and randomly removing variables at each partition. This makes the resulting predictions more robust, because features in the data that by chance cause large swings in the model are averaged away during the course of bootstrap aggregation and variable deletion, leaving a model that is less sensitive to the "Rashemon effect".
+
+
 
 
 ##LDA and QDA
@@ -376,11 +353,19 @@ The main metric we used to evaluate the models is misclassification rate. Anothe
 
 We can also use the MSE to evaluate our regression models. This is the square of the Euclidean distance between our predictions and the actual observation. The advantage of this is that it penalizes the model for making a prediction that is further apart from the actual observation, e.g. predicting a 5 on a true 1 is worse than predicting a 1 on a true 2. However, only the regression models can be compared along this metric, because the classifiers have no norm.
 
+4. Test Misclassification rate
+
 The model with the overall best test misclassification rate is the random forest performed on the sentiment dictionary, with a misclassification rate of 0.4699. This was only slightly better than the performance of the boosted trees and the boostrap aggregated trees. Technical issues prevented us from predicting into the test dataset for the random forest models performed on the bag of words. However, the boosted trees produced a mediocre 0.5352 misclassification rate. The random forest models would have likely been similar.
 
 The natural assumption would be that the bag of words overfits, but this may not be the case. The out-of-bag error for the random forest model is actually 0.469, the lowest of any model (barely). This suggests that the problem is more that the bag of words is finding words in the training data and using the top 1000 most common words to predict into the test data. Presumably, the most common words in the training data are different from the most common words in the test data. The out of bag observations, although they are not used to fit the tree, are still used to find the most common words. This suggests that if the model were allowed to compute the most common words in the test data and use those in the forest, it would get a misclassification rate of around what the out-of-bag error is computing, slightly better accuracy than the sentiment dictionary. This would be interesting to test empirically in the future.
 
+<<<<<<< HEAD
 Among the regression models using the sentiment dictionary, the random forest does the best, slightly beating out the gradient boosting machine. In the bag of words, the boosted model generally performs the best. When the regression models are evaluated on their ability to classify (meaning the responses are rounded), they generally perform poorly. Unlike the misclassification rates, the MSE's are hard to interpret. For one, the units are in $stars^2$. Even if the square root is taken so that the units are in stars, the square root of the mean squared error is not the same as the mean error because of the nonlinearity of exponentials. Generally, though, the average squared error is about 1 for most of the better models, meaning they likely tend to mispredict the true rating by about 1 star.
+=======
+We also have a conceptual split between regression and classification, with ordered regression falling in the middle. A classification model treats all of the values of the response variables as categories without any ordinal or cardinal value. A regression model treats the response as having both ordinal and cardinal value, usually using the Euclidean ($L_2$) norm. Typically, an ordinal model posits the existence of a latent, continuous, cardinal response combined with partitions that divide the latent response into sections, each with an observed response category associated with it.
+
+Our response has a clear ordinal structure, but it is less clear that it has an obvious cardinal interpretation. Under an $L_2$ norm, the distance between a 5 and a 3 is the same as the distance between a 3 and a 1. If this is true, a regression model may make sense, although it would still have to be censored at 1 and 5. If this is not the case, a regression model would probably be inappropriate. A classification model would have the advantage of not assuming any structure to the data that is not there, but the consequence is that it misses the ordinal structure that is there. This makes it seem like an ordinal regression model is ideal. However, many of the best machine learning algorithms do not have commonly available ordinal variants. Although a brief search of the literature revealed innovative ways to give ordinal structure to classification tree ensembles, most of those models had no straightforward implementation in R, and were thus beyond the scope of the project. As a result, the only explicitly ordinal model that we fit.
+
 
 ### References
 James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani, eds. 2013. An Introduction to Statistical Learning: With Applications in R. New York: Springer.
