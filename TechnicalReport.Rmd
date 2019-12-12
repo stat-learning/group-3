@@ -3,13 +3,13 @@ title: "Technical Report"
 author: "Jacob Goldsmith, Claire Jellison, Ryan Kobler"
 date: "12/2/2019"
 output:
+  pdf_document: default
   github_document: default
 ---
 ```{r, echo = FALSE}
 # styles
 library(gridExtra)
 library(kableExtra)
-
 library(dplyr)
 library(ggplot2)
 library(randomForest)
@@ -199,9 +199,25 @@ ggplot(data = train_senti, aes(x = nwords, y = stars)) +
   geom_smooth() #stars
 ```
 
-#### Natural clustering into 5 categories using K-means
-```{}
-#  k-means visualization
+#### No natural clustering into 5 categories using K-means
+```{r fig4, echo = FALSE, fig.cap="\\label{fig:fig4}Scree plot and Biplot", cache=TRUE }
+pcatrainsenti <- train_senti %>% dplyr::select(c("stars", "joyratio" , "angerratio" , "fearratio" , "positiveratio", "negativeratio", "surpriseratio", "disgustratio" , "trustratio" , "anticipationratio"))
+pcatrainsenti <- na.omit(pcatrainsenti)
+pcatrainsenti_stars <- pcatrainsenti %>% dplyr::select("stars")
+pcatrainsenti <- pcatrainsenti %>% dplyr::select(-stars)
+pca1 <- prcomp(pcatrainsenti, scale = TRUE)
+names(pca1)
+pcad <- pca1$x
+pcad <- as.matrix(pcad)
+pc1 <- pcad[, 1]
+pc2 <- pcad[, 2]
+library(factoextra)
+fviz_eig(pca1)
+fviz_pca_var(pca1,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
 ```
 
 ### Modeling
@@ -210,6 +226,22 @@ Construct (descriptive and/or predictive) (classification and/or regression) mod
 This will be the most extensive section and will include your results as well.
 
 To answer one of our initial questions, proper treatment of ordered classes, we fit a series of classification and regression models. We had three main types of models:
+
+## Regression based models:
+
+
+#LINEAR MODEL 
+The most simple model we tried fitting was a basic linear model to serve as a baseline to compare our other models to. However, because our reponse variable of interest is both discrete and ordinal, we also had to design a function in order to  predict discrete values. This allowed us to get a missclassification error that we can compare with the other models. Therefore, we wrote a function that predicts 5 for all predicted values greater than 5 and that predicts 1 for all predicted values less than 1. Additionally, it rounds all other value to the nearest integer. This missclassification error was 0.645597. 
+
+#ORDINAL LOGISTIC REGRESSION 
+
+Clearly, a significant disadvantage to the linear model, is that it is treating the reponse variable as continuous rather than categorical. The advantage is it does preserve the ordinal nature of the reponse variable. A regression model that both treats the reponse variable as categorical and ordinal is the ordinal logistic regression model. For this model, we used the polr command from the MASS library. 
+
+The following equation is from the wikipedia page, 
+$${\displaystyle \Pr(y\leq i|\mathbf {x} )=\sigma (\theta _{i}-\mathbf {w} \cdot \mathbf {x} )}$$
+
+
+The initial missclassification rate without any transformation was around 0.83 on the test data set. However, a quick look at the confusion matrix revealed the reason for this extraordinarily high missclassification rate. The issue was that the oridinal logistic model was only predicting 1, 4, and 5 stars instead of the full range of stars. In order to modify it so that it would be biased it favor of predicting 2's and 3's we wrote a modified predict function. Instead of predicting the number of stars from the ordinal logistic model, we instead used the predict function that gives that probability of it belonging to any of the 5 categories. Normally, it would choose the category with the greatest probability, but in the modified predict function we wrote, if 1 star has the greatest probability but it is not that great (given some cutoff value) we have it predict 2 and similarly if 4 has the greatest probability but not it is not above some cutoff value we have it predict 3. This function was obtained by trying to artificially construct the lowest training MSE, but when we applied the identical biased predict function to the test data set it still significantly increased preformance. The new test MSE because 0.499 which although not within competative range with the tree models is a large improvement. 
 
 ##Tree based models:
 #BAGGED FOREST
@@ -517,9 +549,19 @@ BOOSTED TREES:
 #### Which measure of error can we trust to evaluate our models?
 
 
+
+### Extensions 
+
+There are a considerable number of extensions that could be made to this project. For one, we could seek to find a dataset that includes multiple reviews from the same users. This would allow us to calculate user-specific z-scores. Throughout this project a significant difficulty has been identifying mid range star reviews. We think this may in large part be due to the fact that users may consider different numbers of stars to correspond to a an "average" restuarant. This means that they may use the similar language in a review but give a different star value solely because they have a different idea of what 3 stars means to them. Essentially, adding users to our model would allow our model to account for differences within different reviewers which is currently an important absent variable in our models. We expect that with this addition, there would be significant improvements in our missclassification error, especially for mid-range stars. 
+
+Another possible extension would be attempting to identify longer length phrases. Currently, using negation words we have accounted for phrases like "not good". However, it would be worthwhile to extend this to even larger phrases. Consider the phrases "not very good" or "isn't all that bad". These type of often used phrases are not being very well leveraged by our current models, but could potentially have very strong explanatory power. One way to identify these type of phrases may be to search for words that often appear together in the strings of text and the create predictors out of those phrases. 
+
+
 ### References
 James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani, eds. 2013. An Introduction to Statistical Learning: With Applications in R. New York: Springer.
 
 Crowdsourcing a Word-Emotion Association Lexicon, Saif Mohammad and Peter Turney, Computational Intelligence, 29 (3), 436-465, 2013.
 
 Emotions Evoked by Common Words and Phrases: Using Mechanical Turk to Create an Emotion Lexicon, Saif Mohammad and Peter Turney, In Proceedings of the NAACL-HLT 2010 Workshop on Computational Approaches to Analysis and Generation of Emotion in Text, June 2010, LA, California.
+
+https://en.wikipedia.org/wiki/Ordinal_regression
