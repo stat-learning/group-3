@@ -127,6 +127,7 @@ glimpse(x)
 
 - `anticipation`: 
 
+- `joyratio`: the number of "joy" words divided by the number of non-stop words
 
 ```{r fig1, echo=FALSE, fig.cap="\\label{fig:fig1}Distribution of the Response", cache=TRUE}
 ggplot(train_senti, aes(starsfactor)) + 
@@ -421,9 +422,75 @@ We took two main approaches in our modeling. First, we relied on pre-created dic
 
 Thus, our second modeling approach was to let the data teach us how to group the words. Each of the most commonly used 1000 words was coded as an integer variable indicating how many times the word was used in the text. The algorithm had no a priori information about the meaning of the words, nor about their likely groupings. This sort of modeling made the most sense to do with algorithms that do well with high dimensional predictor sets, such as ensembles of trees. Whereas individual trees and parametric models would be liable to have high variance with a high number of predictors, random forests get around this by taking bootstrap samples and randomly removing variables at each partition. This makes the resulting predictions more robust, because features in the data that by chance cause large swings in the model are averaged away during the course of bootstrap aggregation and variable deletion, leaving a model that is less sensitive to the "Rashemon effect".
 
-RANDOM FOREST v. BAGGED MODELS:
+## RANDOM FOREST v. BAGGED MODELS:
 
-Benefits - can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. 
+Random forests can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. The table below shows our misclassification error for the best tree of each, indicating that the random forest did not improve our misclassification rate as much as expected for the bag of words model, doing even worse with the test MCR.  
+
+Bag of Words model - Misclassification Rate 
+| m | OOB error | Test | NTrees |
+|:---------|:---------:|:---------:|:-------:|
+| Bagged model (m = p) |  0.46 | 0.6028 | 92 |
+| Random forest m = p/3| *0.4476* | 0.611 | 100 | 
+
+with an out of bag error rate of 0.45, the random forest bag of words model represented an improvement over the sentiment library. 
+
+```{r, eval = F, cache = T}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+df <- train_bag %>% 
+  select(-c(X.1, X))
+
+df.test <- test_bag %>% 
+  select(-c(X.1, X))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(STARS)
+x.test <- df.test %>%
+  select(-c(STARS))
+#-----------------------------------------------------
+
+n <- 5000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag.class <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "multinomial",
+                   as.factor(STARS)~., 
+                   xtest = x.test[, 1:p],
+                   ytest = as.factor(y.test),
+                   ntree = 100, 
+                   mtry = p / 3)
+```
+
+The confusion matrix below is our best, but not by much. The matrix reveals the prevailing shortcoming across all of our tree based model: inability to predict 2 and 3 star reviews. It is possible that the misclassification error may not be as useful a metric as the MSE to evaluate our models, stemming from a lack of variation between 2 and 3 star reviews, or that we need to extract better predictors.    
+
+```{r}
+# define and get rf.bag.class
+rf.bag.class$confusion %>%
+  kable(caption = "Confusion matrix - bag of words, random forest") %>%
+  kable_styling()
+
+impPlot <- data.frame(rf.bag.class$importance)
+impPlot$predictor <- rownames(rf.bag.class$importance)
+impPlot %>%
+  arrange(desc(MeanDecreaseGini)) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  scroll_box(width = "500px", height = "200px")
+```
+
+Sentiment model - Misclassification Rate
+| m | OOB error | Test | NTrees |
+|:---------|:---------:|:---------:|:-------:|
+| Bagged model (m = p) | 0.497  | 0.483 | 71 |
+| Random forest m = p/3| 0.490 | 0.476 | 85 | 
+
+
 
 ```{r}
 # Code below ensures that we don't have any missingness or non-numeric predictors
@@ -454,79 +521,21 @@ x.test <- df.test %>%
   select(-c(stars))
 ```
 
-### Fitting Random Forest and Bagged Models
+#### Sentiment Dictionary (MSE): 
 
-#### Sentiment Dictionary: 
-```{r}
-set.seed(120)
-# select only some of the observations for run time concerns
-n <- 1000
-# Tree-based methods ~ Regression
-rf <- randomForest(data = df[1:n,], 
-                   type = "regression",
-                   stars~., 
-                   xtest = x.test,
-                   ytest = y.test,
-                   ntree = 100, 
-                   mtry = ncol(df) / 3)
+![Sentiment: Test and OOB MSE across n-trees](images/mse_plots_senti.png)
 
-# specify x.test and y.test arguments to calculate a test error
-bagged <- randomForest(data = df[1:n,], 
-                       type = "regression",
-                       stars~., 
-                       xtest = x.test,
-                       ytest = y.test,
-                       ntree = 100, 
-                       mtry = ncol(df))
+As we can see from the figure above, the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we went with the 100-tree model. 
 
 
-mse.df <- data.frame(rfs = rf$mse, 
-                     bagged = bagged$mse,
-                     rfs_test = rf$test$mse,
-                     bagged_test = bagged$test$mse)
-                     
+![Sentiment: Test and OOB MSE across n-trees](images/bag of words mses - trees.png)
 
-forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
-  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
-  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
-  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
-  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
-  labs(title = "Error across bagged and random forest regression models") +
-  xlab("Number of trees") +
-  ylab("Error")
-  
-forest.mses
+From the figure above, it is clear that when the bag of words data rf and bagged models underperformed with the test set. However, is extracting estimating with the top 500 training words on an entirely new test data set tractable? Because the predictors were learned from the data itself by taking the top 500 words, they may be less useful when applied to a wholly different data set. We might also think that using 500 predictors risked overfitting the model(??). The tables below shows the variable importances of each of the words in the bag of words data set for the best fitting random forest model. 
 
-```
-As we can see the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we kept the 100-tree model. 
+Note: we only used the first 5,000 of the 20,000 observations in the bag of words model to fit the tree models. 
 
-From the figure above, it is clear that when the bag of words data rf and bagged models underperformed with the test set. However, is extracting estimating with the top 500 training words on an entirely new test data set tractable? Because the predictors were learned from the data itself, the reason the predictors may be less useful when applied to the test set. We might also think that using 500 predictors risked overfitting the model(??). The table below shows the variable importances of each of the words in the bag of words data set.
+So by the MSE metric, the winner is the random forest model on the sentiment dictionary. 
 
-
-
-
-
-```{r}
-importance.bag <- as.data.frame(rf.bag$importance)
-importance.bag$predictor <- rownames(rf.bag$importance)
-importance.bag %<>%
-  arrange(desc(IncNodePurity)) %>% 
-  kable() %>%
-  kable_styling()
-
-```
-
-
-
-1. Variable Importance
-
-2. 5-fold misclassification rate/ oob misclassification rate
-
-3. Confusion matrix on test dataset
-  i. Type 1 error rate for each class (from rows of confusion matrix)
-  ii.Type 2 error rate for each class (from columns of confusion matrix)
-
-4. Test Misclassification rate
 
 
 
@@ -541,7 +550,6 @@ BOOSTED TREES:
   ii.Type 2 error rate for each class (from columns of confusion matrix)
 
 4. Test Misclassification rate
->>>>>>> 3ffd6f555b95d0bc95adbf771386c749deb6b5e4
 
 #### Which measure of error can we trust to evaluate our models?
 
