@@ -3,9 +3,9 @@ title: "Technical Report"
 author: "Jacob Goldsmith, Claire Jellison, Ryan Kobler"
 date: "12/2/2019"
 output:
-  github_document: default
+  pdf_document: default
 ---
-```{r, echo = FALSE}
+```{r include=FALSE}
 # styles
 library(gridExtra)
 library(kableExtra)
@@ -66,23 +66,32 @@ test_bag <- read.csv("DATA/test_bag.csv")
 
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
+library(randomForest)
 ```
 
 
 
 ### Exploratory Data Analysis
-Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
+**Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
 
-The bulk of our data exploration comes at our choices of features to extract, then the methodology by which to extract those features. 
+The bulk of our data exploration comes at our choices of features to extract and the methodology by which to extract those features. 
 
 #### Sentiment dictionaries
 
 Cleaning process:
+
 1) Drop all stop words from the review such as "the", "in", "to", "a", etc.
+
   - Count # non-stop words
+  
 2) Remove all non-English reviews using the `textcat` package.
-3) Tokenize the words (used `stringr` library to split by space, and grepl function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
+
+3) Tokenize the words (used `stringr` library to split by space, and `grepl()` function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
+
 4) Join words from the sentiment categories in NRC and count number of words in each review by sentiment that are categorized into a sentiment.
+
+See link to accompanying RMarkdown of all code used to clean and produce the features.
 
 
 This resulted a dataset with the dimensions listed above. 
@@ -188,9 +197,10 @@ ggplot(train_senti, aes(x=positive, y = disgust)) +
   geom_jitter(aes(color = stars)) + 
   ggtitle("Scatter of Stars") 
 ```
+
 In Figure \ref{fig:fig2} we can see that positively identified words are correlated with higher levels of stars, whereas the cluster of dark blue indicates that the presence of more disgust words in proportion to the total number of words is correlated with lower stars. 
 
-In the figure below, the number of stars appears to be decreasing in the number of words in general. This could be because people at the lower end of the star spectrum might have more to say, or describe specific instances or stories in which their expectations were not met. 
+In the figure below, the number of stars appears to be decreasing in the number of words in general. This could be because people at the lower end of the star spectrum might have more to say, or describe specific instances or stories in which their expectations were not met(??lol wait does this make sense). 
 ```{r fig3, echo = FALSE, fig.cap="\\label{fig:fig3}Scatterplot of number of words in a review vs. stars"}
 ggplot(data = train_senti, aes(x = nwords, y = stars)) + 
   geom_jitter(size = 0.25) + 
@@ -286,7 +296,7 @@ BAGGED TREES:
 
 
 
-RANDOM FOREST:
+RANDOM FOREST v. BAGGED MODELS:
 
 Benefits - can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. 
 
@@ -319,9 +329,9 @@ x.test <- df.test %>%
   select(-c(stars))
 ```
 
-### Fitting Regression and Bagged Models
-Using counts
-Using ratios
+### Fitting Random Forest and Bagged Models
+
+#### Sentiment Dictionary: 
 ```{r}
 set.seed(120)
 # select only some of the observations for run time concerns
@@ -361,7 +371,26 @@ forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
   ylab("Error")
   
 forest.mses
+
 ```
+As we can see the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we kept the 100-tree model. 
+
+From the figure above, it is clear that when the bag of words data rf and bagged models underperformed with the test set. However, is extracting estimating with the top 500 training words on an entirely new test data set tractable? Because the predictors were learned from the data itself, the reason the predictors may be less useful when applied to the test set. We might also think that using 500 predictors risked overfitting the model(??). The table below shows the variable importances of each of the words in the bag of words data set.
+
+
+
+
+
+```{r}
+importance.bag <- as.data.frame(rf.bag$importance)
+importance.bag$predictor <- rownames(rf.bag$importance)
+importance.bag %<>%
+  arrange(desc(IncNodePurity)) %>% 
+  kable() %>%
+  kable_styling()
+
+```
+
 
 
 1. Variable Importance
@@ -389,6 +418,7 @@ BOOSTED TREES:
 4. Test Misclassification rate
 
 #### Which measure of error can we trust to evaluate our models?
+
 
 
 ### References
