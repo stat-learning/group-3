@@ -3,9 +3,9 @@ title: "Technical Report"
 author: "Jacob Goldsmith, Claire Jellison, Ryan Kobler"
 date: "12/2/2019"
 output:
-  github_document: default
+  pdf_document: default
 ---
-```{r, echo = FALSE}
+```{r include=FALSE}
 # styles
 library(gridExtra)
 library(kableExtra)
@@ -58,7 +58,6 @@ The Yelp data set's size gives plenty of test data to work with, so we create fo
 | Sentiment dictionaries | 52,945 x 37 table | 9,850 x 37 table |
 | Bag of words | 20,000 x 2,004 table | 9,850 x 2,004 table | 
 
-<<<<<<< HEAD
 ```{r, cache = TRUE, echo=FALSE}
 ctrain_bag <- read.csv("DATA/train_bag.csv")
 train_senti <- read.csv("DATA/train_senti.csv")
@@ -68,23 +67,32 @@ test_bag <- read.csv("DATA/test_bag.csv")
 
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
+library(randomForest)
 ```
 
 
 
 ### Exploratory Data Analysis
-Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
+**Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
 
-The bulk of our data exploration comes at our choices of features to extract, then the methodology by which to extract those features. 
+The bulk of our data exploration comes at our choices of features to extract and the methodology by which to extract those features. 
 
 #### Sentiment dictionaries
 
 Cleaning process:
+
 1) Drop all stop words from the review such as "the", "in", "to", "a", etc.
+
   - Count # non-stop words
+  
 2) Remove all non-English reviews using the `textcat` package.
-3) Tokenize the words (used `stringr` library to split by space, and grepl function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
+
+3) Tokenize the words (used `stringr` library to split by space, and `grepl()` function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
+
 4) Join words from the sentiment categories in NRC and count number of words in each review by sentiment that are categorized into a sentiment.
+
+See link to accompanying RMarkdown of all code used to clean and produce the features.
 
 
 This resulted a dataset with the dimensions listed above. 
@@ -190,9 +198,10 @@ ggplot(train_senti, aes(x=positive, y = disgust)) +
   geom_jitter(aes(color = stars)) + 
   ggtitle("Scatter of Stars") 
 ```
+
 In Figure \ref{fig:fig2} we can see that positively identified words are correlated with higher levels of stars, whereas the cluster of dark blue indicates that the presence of more disgust words in proportion to the total number of words is correlated with lower stars. 
 
-In the figure below, the number of stars appears to be decreasing in the number of words in general. This could be because people at the lower end of the star spectrum might have more to say, or describe specific instances or stories in which their expectations were not met. 
+In the figure below, the number of stars appears to be decreasing in the number of words in general. This could be because people at the lower end of the star spectrum might have more to say, or describe specific instances or stories in which their expectations were not met(??lol wait does this make sense). 
 ```{r fig3, echo = FALSE, fig.cap="\\label{fig:fig3}Scatterplot of number of words in a review vs. stars"}
 ggplot(data = train_senti, aes(x = nwords, y = stars)) + 
   geom_jitter(size = 0.25) + 
@@ -227,6 +236,8 @@ Our response has a clear ordinal structure, but it is less clear that it has an 
 
 RANDOM FOREST:
 
+RANDOM FOREST v. BAGGED MODELS:
+
 Benefits - can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. 
 
 ```{r}
@@ -258,9 +269,9 @@ x.test <- df.test %>%
   select(-c(stars))
 ```
 
-### Fitting Regression and Bagged Models
-Using counts
-Using ratios
+### Fitting Random Forest and Bagged Models
+
+#### Sentiment Dictionary: 
 ```{r}
 set.seed(120)
 # select only some of the observations for run time concerns
@@ -300,18 +311,76 @@ forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
   ylab("Error")
   
 forest.mses
+
+```
+As we can see the random forest model appears to perform best overall, as its test and OOB MSEs were lowest consistently. Although the model performs better at slightly under 50 trees, it performs best on test data with 100 trees, so we kept the 100-tree model. 
+
+From the figure above, it is clear that when the bag of words data rf and bagged models underperformed with the test set. However, is extracting estimating with the top 500 training words on an entirely new test data set tractable? Because the predictors were learned from the data itself, the reason the predictors may be less useful when applied to the test set. We might also think that using 500 predictors risked overfitting the model(??). The table below shows the variable importances of each of the words in the bag of words data set.
+
+
+```{r}
+importance.bag <- as.data.frame(rf.bag$importance)
+importance.bag$predictor <- rownames(rf.bag$importance)
+importance.bag %<>%
+  arrange(desc(IncNodePurity)) %>% 
+  kable() %>%
+  kable_styling()
+
 ```
 
 
-#### Model Evaluation
+##LDA and QDA
+LDA and QDA use Bayes' Theorem to classify observations. They assume that the probability density of $X\mid{Y}=y$  in the classes is multivariate normal. LDA carries the additional assumption that the variance of the pdf is the same in each class. To check the main assumption, we can compute variances and covariances among the classes for the most important variable, score:
+```{r}
+var <- c(1:5)
+for (i in 1:5) {
+  var[i] <- var(num_only[which(num_only$stars == i),]$score)
+}
+var
+```
+We can see that the variance in score varies somewhat, but not massively. The changing variance could be a problem for the predictive accuracy of the model.
+
+
+##Boosting
+A gradient boosting machine is a very general method for prediction. As long as the number of trees is large and the shrinkage parameter $\lambda$ is small, it should have low variance. Below are the variable importance plots for the gbm for classification and regression.
+
+###Boosted Model - Sentiment Dictionary: Classification
+```{r}
+#variable importance
+import_gbm <- varImp(boost, numTrees = 1000)
+import_gbm$varnames <- rownames(import_gbm)
+ggplot(import_gbm, aes(x=reorder(varnames, Overall), weight = Overall)) + 
+  geom_bar(color = "Blue") +
+  scale_fill_discrete(name="Variable Group") +
+  ylab("Importance") +
+  xlab("Variable Name") +
+  theme(text = element_text(size = 20), 
+        axis.text.x = element_text(size = 10, angle=90, hjust=1))
+```
+###Boosted Model: Regression
+```{r}
+#variable importance
+import_gbm <- varImp(boost2, numTrees = 500)
+import_gbm$varnames <- rownames(import_gbm)
+ggplot(import_gbm, aes(x=reorder(varnames, Overall), weight = Overall)) + 
+  geom_bar(color = "Blue") +
+  scale_fill_discrete(name="Variable Group") +
+  ylab("Importance") +
+  xlab("Variable Name") +
+  theme(text = element_text(size = 20), 
+        axis.text.x = element_text(size = 10, angle=90, hjust=1))
+```
+
+## Model Evaluation
 The main metric we used to evaluate the models is misclassification rate. Another way of evaluating classification models is to compute the area under the ROC curve, which measures how the true positive rate increases if the threshold for classifying an observation as positive is lowered. A high AUC corresponds to a generally low misclassification rate at different thresholds. For our purposes, we are trying to get the highest overall prediction rate. We do not really care if a model predicts a 5 that is actually a 4 or a 4 that is actually a 5. Thus, the misclassification rate is a reasonable metric for us to use.
 
 We can also use the MSE to evaluate our regression models. This is the square of the Euclidean distance between our predictions and the actual observation. The advantage of this is that it penalizes the model for making a prediction that is further apart from the actual observation, e.g. predicting a 5 on a true 1 is worse than predicting a 1 on a true 2. However, only the regression models can be compared along this metric, because the classifiers have no norm.
 
 The model with the overall best test misclassification rate is the random forest performed on the sentiment dictionary, with a misclassification rate of 0.4699. This was only slightly better than the performance of the boosted trees and the boostrap aggregated trees. Technical issues prevented us from predicting into the test dataset for the random forest models performed on the bag of words. However, the boosted trees produced a mediocre 0.5352 misclassification rate. The random forest models would have likely been similar.
 
+The natural assumption would be that the bag of words overfits, but this may not be the case. The out-of-bag error for the random forest model is actually 0.469, the lowest of any model (barely). This suggests that the problem is more that the bag of words is finding words in the training data and using the top 1000 most common words to predict into the test data. Presumably, the most common words in the training data are different from the most common words in the test data. The out of bag observations, although they are not used to fit the tree, are still used to find the most common words. This suggests that if the model were allowed to compute the most common words in the test data and use those in the forest, it would get a misclassification rate of around what the out-of-bag error is computing, slightly better accuracy than the sentiment dictionary. This would be interesting to test empirically in the future.
 
-
+Among the regression models using the sentiment dictionary, the random forest does the best, slightly beating out the gradient boosting machine. In the bag of words, the boosted model generally performs the best. When the regression models are evaluated on their ability to classify (meaning the responses are rounded), they generally perform poorly. Unlike the misclassification rates, the MSE's are hard to interpret. For one, the units are in $stars^2$. Even if the square root is taken so that the units are in stars, the square root of the mean squared error is not the same as the mean error because of the nonlinearity of exponentials. Generally, though, the average squared error is about 1 for most of the better models, meaning they likely tend to mispredict the true rating by about 1 star.
 
 ### References
 James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani, eds. 2013. An Introduction to Statistical Learning: With Applications in R. New York: Springer.
