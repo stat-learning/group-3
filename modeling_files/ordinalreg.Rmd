@@ -1,0 +1,246 @@
+---
+title: "ordinalreg"
+author: ""
+date: "12/7/2019"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(MASS)
+library(glm.predict)
+library(tokenizers)
+library(stringr)
+library(readr)
+```
+
+Relied to some degree on the following sources: https://rpubs.com/rslbliss/r_logistic_ws
+https://stats.idre.ucla.edu/r/dae/ordinal-logistic-regression/
+
+Note: this code may no longer run smoothly due to a rewrite in the data file 
+
+```{r}
+dfraw <- read.csv("DATA/raw_words.csv") #data with self identified words 
+dfsent <- read.csv("DATA/training_newpred.csv")
+```
+
+```{r}
+dfjoin <- full_join(dfraw, dfsent, by = "X1")
+dfjoin <- na.omit(dfjoin)
+glimpse(dfjoin)
+```
+
+```{r}
+
+nSentences <- function(string){
+  length(tokenize_sentences(string))
+}
+
+# Use tokenize_sentences() function to separate the long body of text into
+# sentence segments. 
+sentences <- tokenize_sentences(as.character(dfjoin$text))
+dfjoin$sentences <- sapply(sentences, length)
+
+#-----------------------------------------------------
+# Punctuation mark frequency
+
+# Use the stringr library to count the number of punctuation marks of all
+# types, designated by the "[[:punct:]]" pattern and save in new var `punct`.
+dfjoin$punct <- str_count(as.character(dfjoin$text),
+                              "[[:punct:]]")
+
+dfjoin$exclaim <- str_count(as.character(dfjoin$text),
+                              "!")
+```
+
+#Ordinal logistic regression
+```{r}
+dfjoin$starsfactor <- factor(dfjoin$starsfactor)
+dfjoin$starsfactor <- factor(dfjoin$starsfactor, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
+olog <- polr(starsfactor ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + sentences + punct + nwords + exclaim + score , data = dfjoin)
+summary(olog)
+```
+
+```{r}
+coefsolog <- coef(olog)
+coefsolog
+```
+
+
+```{r}
+(ctable <- coef(summary(olog)))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+(ctable <- cbind(ctable, "p value" = p))
+
+```
+
+
+# Get test MSE 
+
+```{r}
+dftest <- read.csv("DATA/yelp_test_wpred.csv")
+```
+
+```{r}
+dftest<- na.omit(dftest)
+dftest$starsfactor <- dftest$stars
+dftest$starsfactor <- factor(dftest$starsfactor)
+dftest$starsfactor <- factor(dftest$starsfactor, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
+```
+
+```{r}
+opredictedvals <- predict(olog, newdata = dftest)
+#predict(house.plr, newdata = data.frame(Infl = "Low", Type = "Tower", Cont = "Low"))
+#opredictedvals <- as.integer(predictedvals)
+head(opredictedvals)
+```
+
+
+```{r}
+opredictedvals <- as.integer(opredictedvals)
+dftest$starsfactor <- as.integer(dftest$starsfactor)
+actualvals <-  dftest$starsfactor
+mse_olog <- mean((opredictedvals - actualvals)^2)
+mse_olog
+```
+
+
+```{r}
+predictedstarstest <- predict(olog, dftest, type="p")  # predict the probabilites
+predictedstarstrain <- predict(olog, dfjoin, type="p") 
+head(predictedstarstest)
+```
+
+
+# predict cheat for the training data 
+```{r}
+predcheat <- rep(NA, nrow(predictedstarstrain))
+predictcheat <- function(predictedstars) { 
+  for (i in 1:nrow(predictedstars)){
+    max <- which.max(predictedstars[i,])
+    val <- predictedstars[i,max]
+    if (max == 1 & val < .28) { 
+      predcheat[i] <- 2
+    }
+    else if (max == 4 & val < .253) {
+      predcheat[i] <- 3
+    }
+    else {
+    predcheat[i] <- max}
+    }
+  predcheat
+}
+predcheat <- predictcheat(predictedstarstrain)
+
+```
+
+#predict cheat for the test data (this is the same as the train function) 
+```{r}
+predcheattest <- rep(NA, nrow(predictedstarstest))
+predictcheat <- function(predictedstars) { 
+  for (i in 1:nrow(predictedstars)){
+    max <- which.max(predictedstars[i,])
+    val <- predictedstars[i,max]
+    if (max == 1 & val < .28) { 
+      predcheattest[i] <- 2
+    }
+    #else if (max == 5 & val < .42) { 
+      #predcheat[i] <- 4
+      #}
+    
+    else if (max == 4 & val < .253) {
+      predcheattest[i] <- 3
+    }
+    else {
+    predcheattest[i] <- max}
+    }
+  predcheattest
+}
+predcheattest <- predictcheat(predictedstarstest)
+```
+
+
+
+#This is the missclassification rate before adding bias to the predict function
+```{r}
+conf_olog <- table(dftest$starsfactor, opredictedvals)
+conf_olog
+misc_olog <- 1 - (sum(diag(conf_olog)) / sum(conf_olog))
+misc_olog
+```
+
+
+#This is the new predict function on the training data 
+```{r}
+conf_olog_cheat <- table(dfjoin$starsfactor, predcheat)
+conf_olog_cheat
+misc_olog_cheat <- 1 - (sum(diag(conf_olog_cheat)) / sum(conf_olog_cheat))
+misc_olog_cheat
+```
+The MSE has significantly decreased to .49946778.
+
+#This is the new predict function on the test data 
+```{r}
+conf_olog_cheat_test <- table(dftest$starsfactor, predcheattest)
+conf_olog_cheat_test
+misc_olog_cheat_test <- 1 - (sum(diag(conf_olog_cheat_test)) / sum(conf_olog_cheat_test))
+misc_olog_cheat_test
+```
+We see that the MSE stays at this lower level when the biased predict function is applied to the test data. The MSE is now 0.4997938.
+
+```{r}
+dfraw <- read.csv("DATA/raw_words.csv")
+dfrawrep <- dfraw %>%
+  dplyr::select(response)
+
+```
+```{r}
+dfraw <- dfraw[,1:500]
+dfraw <- cbind(dfraw,dfrawrep)
+dfraw$score <- yelp_train[1:20000,]$score
+dfraw <- na.omit(dfraw)
+dfraw <- na.omit(dfraw)
+```
+
+
+```{r}
+dfraw$starsfactor <- factor(dfraw$response, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
+olograw <- polr(starsfactor ~ . , data = dfraw, start = rep(1, 505),method= "logistic")
+```
+
+```{r}
+library(rms)
+```
+
+```{r}
+ologtry <- lrm(starsfactor ~ . ,maxit=1000, data = dfraw)
+```
+
+```{r}
+predictedstarstrainbag <- predict(ologtry, dfraw,  type="mean", codes=TRUE)  
+summary(predictedstarstrainbag)
+predictedstarstrainbag <- predict(ologtry, dfrawtest,  type="mean", codes=TRUE)  
+summary(predictedstarstestbag)
+```
+
+```{r}
+dfrawtest <- read.csv("DATA/yelp_test_raw.csv")
+test_senti <- read.csv("DATA/yelp_test_wpred.csv")
+dfrawtest$stars <- test_senti$starsfactor
+summary(dfrawtest$stars)
+```
+
+
+```{r}
+predtestbag <- predict(ologtry, dfrawtest,  type="mean", codes=TRUE)  
+mean(predtestbag)
+```
+
+```{r}
+conf <- table(dfrawtest$stars, predictedstarstestbag)
+conf 
+misclass <- 1 - (sum(diag(conf)) / sum(conf)) 
+misclass
+```
+
+
