@@ -1,0 +1,193 @@
+---
+title: "linearclean"
+author: "Claire Jellison"
+date: "12/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(MASS)
+```
+
+
+```{r}
+train_senti <- read.csv("DATA/train_senti.csv")
+train_bag <- read.csv("DATA/train_bag.csv")
+test_senti <- read.csv("DATA/test_senti.csv")
+test_bag <- read.csv("DATA/test_bag.csv")
+```
+
+##pca on senti 
+
+
+```{r}
+pcatrainsenti <- train_senti %>% dplyr::select(c("stars", "joyratio" , "angerratio" , "fearratio" , "positiveratio", "negativeratio", "surpriseratio", "disgustratio" , "trustratio" , "anticipationratio"))
+pcatrainsenti <- na.omit(pcatrainsenti)
+pcatrainsenti_stars <- pcatrainsenti %>% dplyr::select("stars")
+pcatrainsenti <- pcatrainsenti %>% dplyr::select(-stars)
+```
+
+```{r}
+pca1 <- prcomp(pcatrainsenti, scale = TRUE)
+names(pca1)
+pcad <- pca1$x
+pcad <- as.matrix(pcad)
+pc1 <- pcad[, 1]
+pc2 <- pcad[, 2]
+```
+
+
+```{r}
+biplot(pca1, expand=13, xlim=c(-1.2, 0.3), ylim=c(0, 1)) 
+```
+
+```{r}
+library(factoextra)
+fviz_eig(pca1)
+fviz_pca_var(pca1,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+```
+
+
+```{r}
+dfcluster <- cbind(pc1, pc2)
+head(dfcluster)
+set.seed(9)
+k<- c(2, 3, 4)
+cluster2 <- kmeans(pcatrainsenti, 2)
+cluster3 <- kmeans(pcatrainsenti, 3)
+cluster5 <- kmeans(pcatrainsenti, 5)
+
+framcluster <- as.data.frame(dfcluster)
+framcluster$cluster2 <- cluster2$cluster
+framcluster$cluster3 <- cluster3$cluster
+framcluster$cluster5 <- cluster5$cluster
+framcluster$stars <- pcatrainsenti_stars$stars
+head(framcluster)
+ggplot(framcluster, aes(x=pc1, y=pc2)) + geom_point(aes(col = as.factor(cluster5)), alpha = .4) +geom_text(aes(label=stars),hjust=0, vjust=0, size = 2) + xlim(-15, 5) + ylim(0, 20)
+```
+
+
+##senti linear
+
+
+```{r}
+test_sentina <- na.omit(test_senti)
+basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + nwords + sentences + punct + exclaim + score, data = train_senti)
+summary(basiclinear)
+```
+
+
+
+```{r}
+predictandroundtoint <- function(model, data){ #function to round to discrete values 
+  predvalues <- predict(model, data) 
+  predvaluesdf <- as.data.frame(predvalues)
+  rows <- nrow(predvaluesdf)
+  for (i in  1:rows) { 
+    if (predvaluesdf[i, ] > 5) {predvaluesdf[i, ] = 5}
+    if (predvaluesdf[i, ] < 1) {predvaluesdf[i, ] = 1}
+    else { predvaluesdf[i, ] <- round(predvaluesdf[i, ], digits = 0)}
+    }
+  vec <- predvaluesdf
+  vec
+}
+```
+
+
+```{r}
+roundedpred <- predictandroundtoint(basiclinear, test_sentina)
+conf <- table(test_sentina$stars, roundedpred[,1]) # rounded regression confusion matrix 
+conf 
+misclass <- 1 - (sum(diag(conf)) / sum(conf)) #missclassification rate 
+misclass
+```
+
+### pc-senti linear 
+
+```{r}
+basiclinearpca <- lm(stars ~ pc1 + pc2, data = framcluster)
+summary(basiclinearpca)
+starsresid <- resid(basiclinearpca)
+plot(framcluster$stars, starsresid, 
+    ylab="Residuals", xlab="Stars", 
+    main="Plot of residuals") 
+abline(0, 0)
+```
+
+
+## bag linear 
+```{r}
+baglinear <- lm(STARS ~ ., data = train_bag)
+summary(baglinear)
+```
+
+```{r}
+test_bag <- na.omit(test_bag)
+roundedpredbag <- predictandroundtoint(baglinear, test_bag)
+confbag <- table(test_bag$STARS, roundedpredbag[,1]) # rounded regression confusion matrix 
+confbag
+misclassbag <- 1 - (sum(diag(confbag)) / sum(confbag)) #missclassification rate 
+misclassbag
+```
+
+
+# Ordinal logistic regression 
+```{r}
+train_senti_ord <- na.omit(train_senti)
+train_senti_ord$starsfactor <- factor(train_senti$starsfactor)
+train_senti_ord$starsfactor <- factor(train_senti$starsfactor, levels=c("1", "2", "3", "4", "5"), ordered=TRUE)
+olog <- polr(starsfactor ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + sentences + punct + nwords + exclaim + score , data = train_senti_orda)
+summary(olog)
+```
+
+```{r}
+test_sentina <- na.omit(test_senti)
+opredictedvals <- predict(olog, newdata = test_sentina)
+opredictedvals <- as.integer(opredictedvals)
+test_sentina$starsfactor <- as.integer(test_sentina$stars)
+actualvals <-  test_sentina$starsfactor
+mse_olog <- mean((opredictedvals - actualvals)^2)
+mse_olog
+```
+
+```{r}
+predictedstarstest <- predict(olog, test_senti, type="p")  # predict the probabilites
+predictedstarstrain <- predict(olog, train_senti, type="p") 
+head(predictedstarstest)
+```
+
+
+# predict cheat for the training data 
+```{r}
+predcheat <- rep(NA, nrow(predictedstarstrain))
+predictcheat <- function(predictedstars) { 
+  for (i in 1:nrow(predictedstars)){
+    max <- which.max(predictedstars[i,])
+    val <- predictedstars[i,max]
+    if (max == 1 & val < .28) { 
+      predcheat[i] <- 2
+    }
+    else if (max == 4 & val < .253) {
+      predcheat[i] <- 3
+    }
+    else {
+    predcheat[i] <- max}
+    }
+  predcheat
+}
+predcheat <- predictcheat(predictedstarstrain)
+
+```
+
+this code is trying to reproduce the the ordinalreg code with the modified datasets, the rest can be found in ordinalreg
+
