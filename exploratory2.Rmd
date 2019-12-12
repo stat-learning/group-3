@@ -25,6 +25,7 @@ library(GGally)
 #path <- "/Users/ryankobler/Downloads/yelp_review.csv"
 #yelp <- read.csv(path)
 
+
 # Take sample of the data
 yelp %>% sample_frac(0.01)
 # Save sample for easy access
