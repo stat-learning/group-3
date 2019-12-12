@@ -1,0 +1,656 @@
+---
+title: "Modeling code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Code used to fit the models in the Technical Report
+
+### Sentiment library: Boosted Model
+```{r cars}
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df.counts <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.ratios <- train_senti %>%
+  select(score, stars, sentiments, 
+         sentences, punct, exclaim, nwords)
+n <- nrow(df.counts)
+
+boost.counts <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.counts <- predict(boost.counts, newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+
+mse.counts <- mean((yhat.counts - df.counts[1:n,]$stars)^2)
+
+
+
+boost.ratios <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.ratios <- predict(boost.ratios, 
+                      newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+
+mse.ratios <- mean((yhat.ratios - df.ratios[1:n,]$stars)^2)
+
+mse.ratios
+mse.counts
+```
+
+## Bag of words: Tree MSEs
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+df <- train_bag %>% 
+  select(-c(X.1, X))
+
+df.test <- test_bag %>% 
+  select(-c(X.1, X))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(STARS)
+x.test <- df.test %>%
+  select(-c(STARS))
+#-----------------------------------------------------
+
+n <- 1000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "regression",
+                   STARS~., 
+                   xtest = x.test[, 1:p],
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = p / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.bag <- randomForest(data = df[1:n, 1:(p+1)], 
+                       type = "regression",
+                       STARS~., 
+                       xtest = x.test[, 1:p],
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = p)
+
+
+mse.df.bag <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses.bag <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Bag of words data: Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses.bag
+
+# MSES FOR BEST TREES FROM BAG OF WORDS
+bagged.bag$mse[100]
+rf.bag$mse[100]
+```
+
+## Bag of words: Tree MCRs
+```{r}
+n <- 5000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag.class <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "multinomial",
+                   as.factor(STARS)~., 
+                   xtest = x.test[, 1:p],
+                   ytest = as.factor(y.test),
+                   ntree = 100, 
+                   mtry = p / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.bag.class <- randomForest(data = df[1:n, 1:(p+1)], 
+                       type = "multinomial",
+                       as.factor(STARS)~., 
+                       xtest = x.test[, 1:p],
+                       ytest = as.factor(y.test),
+                       ntree = 100, 
+                       mtry = p)
+
+bag.OOB.err.bagged <- bagged.bag.class$err.rate[ ,1]
+bag.OOB.err.rf <- rf.bag.class$err.rate[ ,1]
+
+which.min(bag.OOB.err.rf) # 70 trees
+which.min(bag.OOB.err.bagged) # 100 trees
+min(bag.OOB.err.bagged) # 0.471
+min(bag.OOB.err.rf) # 0.454
+
+bag.test.err.bagged <- bagged.bag.class$test$err.rate[, 1]
+bag.test.err.rf <- rf.bag.class$test$err.rate[, 1]
+
+which.min(bag.test.err.rf) # 54 trees
+which.min(bag.test.err.bagged) # 94 trees
+min(bag.test.err.bagged) # 0.5767
+min(bag.test.err.rf) # 0.582
+
+```
+
+
+## Sentiment: Tree MSEs
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.test <- test_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(stars)
+x.test <- df.test %>%
+  select(-c(stars))
+<<<<<<< HEAD
+#-----------------------------------------------------------
+set.seed(120)
+# select only some of the observations for run time concerns
+n <- nrow(df)
+# Tree-based methods ~ Regression
+rf <- randomForest(data = df[1:n,], 
+                   type = "regression",
+                   stars~., 
+                   xtest = x.test,
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = ncol(df) / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged <- randomForest(data = df[1:n,], 
+                       type = "regression",
+                       stars~., 
+                       xtest = x.test,
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = ncol(df))
+
+
+mse.df <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses
+
+# BEST MSES FOR SENTIMENT LIBRARY TREES
+bagged$mse[100]
+rf$mse[100]
+```
+
+
+## Sentiment: Tree MCRs
+```{r}
+n <- nrow(df)
+rf.class <- randomForest(data = df[1:n,], 
+                   type = "multinomial",
+                   as.factor(stars)~., 
+                   xtest = x.test,
+                   ytest = as.factor(y.test),
+                   ntree = 100, 
+                   mtry = ncol(df) / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.class <- randomForest(data = df[1:n,], 
+                       type = "multinomial",
+                       as.factor(stars)~., 
+                       xtest = x.test,
+                       ytest = as.factor(y.test),
+                       ntree = 100, 
+                       mtry = ncol(df))
+
+OOB.err.bagged <- bagged.class$err.rate[ ,1]
+OOB.err.rf <- rf.class$err.rate[ ,1]
+
+which.min(OOB.err.rf) # 85 trees
+which.min(OOB.err.bagged) # 71 trees
+min(OOB.err.bagged) # 0.5
+min(OOB.err.rf) # 0.484
+
+test.err.bagged <- bagged.class$test$err.rate[, 1]
+test.err.rf <- rf.class$test$err.rate[, 1]
+
+which.min(test.err.rf) # 88 trees
+which.min(test.err.bagged) # 100 trees
+min(test.err.bagged) # 0.5078
+min(test.err.rf) # 0.504
+```
+
+=======
+```
+
+
+## Sentiment Model
+
+```{r}
+#CLASSIFICATION
+library(randomForest)
+library(MASS)
+library(gbm)
+library(rfUtilities)
+library(caret)
+library(dplyr)
+set.seed(12)
+
+train_senti <- read.csv("DATA/train_senti.csv")
+#Remove factor variables
+bool <- sapply(train_senti, is.numeric)
+num_only <- na.omit(train_senti[,bool])
+#Turn the response into a factor
+num_only$starsfactor <- as.factor(num_only$stars)
+
+#Remove unratioed and inappropriate predictors
+num_only <- num_only %>% select(-c(X1,X.1,X,useful,funny,cool,joy,stars,anger,disgust,negative,positive,fear,surprise,trust,anticipation))
+
+#Download test data set
+yelp_test <- read.csv("DATA/yelp_test_wpred.csv")
+#Delete factors
+bool <- sapply(yelp_test, is.numeric)
+test <- na.omit(yelp_test[,bool])
+
+#Make response into factor
+test$starsfactor <- as.factor(test$starsfactor)
+#Rename value to be consistent with training data
+test$value <- test$score
+```
+```{r}
+#bagged trees:
+#Write bagged model
+bag <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only) - 1)
+#Get predictions
+pred_bag <- predict(object = bag, newdata = test, type = "response")
+#Confusion matrix
+conf_bag <- table(test$starsfactor, pred_bag)
+#Misclassification rate
+misc_bag <- 1 - (sum(diag(conf_bag)) / sum(conf_bag))
+misc_bag
+
+#variable importance
+import <- varImpPlot(bag, cex = 0.5)
+
+
+#type 1 error
+t1bag <- c(1:5)
+for (i in 1:5) {
+  t1bag[i] <- conf_bag[i,i] / sum(conf_bag[,i])
+}
+t1_rate_bag <- mean(t1bag)
+
+#type 2 error
+t2bag <- c(1:5)
+for (i in 1:5) {
+  t2bag[i] <- conf_bag[i,i] / sum(conf_bag[i,])
+}
+t2_rate_bag <- mean(t2bag)
+
+#append error rates for each class and predicted class to the confusion matrix
+mat_bag <- as.matrix(conf_bag)
+mat_bag <- cbind(mat_bag, t2bag)
+mat_bag <- rbind(mat_bag, t1bag)
+mat_bag[6, 6] <- NA
+```
+
+```{r}
+#random forest
+#Write random forest model
+rf <- randomForest(data = num_only, starsfactor~., ntree = 500, mtry = ncol(num_only)/3)
+#get prediction vector
+pred_rf <- predict(object = rf, newdata = test, type = "response")
+#confusion matrix
+conf_rf <- table(test$starsfactor, pred_rf)
+#misclassification rate
+misc_rf <- 1 - (sum(diag(conf_rf)) / sum(conf_rf))
+misc_rf
+
+#append error rates for each class and predicted class to the confusion matrix
+mat_rf <- as.matrix(conf_rf)
+mat_rf <- cbind(mat_rf, t2rf)
+mat_rf <- rbind(mat_rf, t1rf)
+mat_rf[6, 6] <- NA
+
+#type 1 error
+t1rf <- c(1:5)
+for (i in 1:5) {
+  t1rf[i] <- conf_rf[i,i] / sum(conf_rf[,i])
+}
+t1_rate_rf <- mean(t1rf)
+
+#type 2 error
+t2rf <- c(1:5)
+for (i in 1:5) {
+  t2rf[i] <- conf_rf[i,i] / sum(conf_rf[i,])
+}
+t2_rate_rf <- mean(t2rf)
+```
+
+```{r}
+#boosted trees
+#Write model for gradient boosted machine.
+boost <- gbm(data = num_only, starsfactor ~ ., n.trees = 1000, shrinkage = 0.05, interaction.depth = 1)
+#get array of predicted probabilities
+pred_boost <- predict(object = boost, newdata = test, type = "response", n.trees = 1000)
+#Convert array to matrix
+predmat <- as.matrix(pred_boost[1:nrow(test),1:5,])
+#get the class with the maximum probability for each observation
+predclass <- colnames(predmat)[max.col(predmat,ties.method="first")]
+#confusion matrix
+conf_boost <- table(test$starsfactor, predclass)
+#misclassification rate
+misc_boost <- 1 - (sum(diag(conf_boost)) / sum(conf_boost))
+misc_boost
+
+#type 1 error
+t1boost <- c(1:5)
+for (i in 1:5) {
+  t1boost[i] <- conf_boost[i,i] / sum(conf_boost[,i])
+}
+t1_rate_boost <- mean(t1boost)
+
+#type 2 error
+t2boost <- c(1:5)
+for (i in 1:5) {
+  t2bag[i] <- conf_boost[i,i] / sum(conf_boost[i,])
+}
+t2_rate_boost <- mean(t2boost)
+
+#append error rates for each class and predicted class to the confusion matrix
+mat_boost <- as.matrix(conf_boost)
+mat_boost <- cbind(mat_boost, t2boost)
+mat_boost <- rbind(mat_boost, t1boost)
+mat_boost[6, 6] <- NA
+```
+
+```{r}
+#LDA
+#write down linear discriminant analysis model
+lda_model <- lda(starsfactor ~ ., data = num_only, na.action = "na.omit", CV = FALSE)
+#get vector of predictions
+pred_lda <- predict(object = lda_model, newdata = test)
+#confusion matrix
+conf_lda <- table(test$starsfactor, pred_lda$class)
+#get misclassification rate
+misc_lda <- 1 - (sum(diag(conf_lda)) / sum(conf_lda))
+misc_lda
+
+#type 1 error
+t1lda <- c(1:5)
+for (i in 1:5) {
+  t1lda[i] <- 1 - conf_lda[i,i] / sum(conf_lda[,i])
+}
+t1_rate_lda <- mean(t1lda)
+
+#type 2 error
+t2lda <- c(1:5)
+for (i in 1:5) {
+  t2lda[i] <- 1 - conf_lda[i,i] / sum(conf_lda[i,])
+}
+t2_rate_lda <- mean(t2lda)
+
+#append error rates for each class and predicted class to the confusion matrix
+mat_lda <- as.matrix(conf_lda)
+mat_lda <- cbind(mat_lda, t2lda)
+mat_lda <- rbind(mat_lda, t1lda)
+mat_lda[6, 6] <- NA
+```
+
+```{r}
+#QDA
+#Write down quadratix discriminant analysis model
+qda_model <- qda(starsfactor ~ ., data = num_only, na.action = "na.omit", CV = FALSE)
+#get vector of predictions
+pred_qda <- predict(object = qda_model, newdata = test)
+#confusion matrix
+conf_qda <- table(test$starsfactor, pred_qda$class)
+#get misclass rate
+misc_qda <- 1 - (sum(diag(conf_qda)) / sum(conf_qda))
+misc_qda
+
+#type 1 error
+t1qda <- c(1:5)
+for (i in 1:5) {
+  t1qda[i] <- conf_qda[i,i] / sum(conf_qda[,i])
+}
+t1_rate_qda <- mean(t1qda)
+
+#type 2 error
+t2qda <- c(1:5)
+for (i in 1:5) {
+  t2qda[i] <- conf_qda[i,i] / sum(conf_qda[i,])
+}
+t2_rate_qda <- mean(t2qda)
+
+#append error rates for each class and predicted class to the confusion matrix
+mat_lda <- as.matrix(conf_lda)
+mat_lda <- cbind(mat_lda, t2lda)
+mat_lda <- rbind(mat_lda, t1lda)
+mat_lda[6, 6] <- NA
+```
+
+```{r}
+#REGRESSION
+bool <- sapply(train_senti, is.numeric)
+num_only <- na.omit(train_senti[,bool])
+num_only$stars <- as.numeric(num_only$stars)
+num_only <- num_only %>% select(-c(X1,X.1,X,useful,funny,cool,joy,starsfactor,anger,disgust,negative,positive,fear,surprise,trust,anticipation))
+
+bool <- sapply(test_senti, is.numeric)
+test <- na.omit(test_senti[,bool])
+test$stars <- as.numeric(test$starsfactor)
+test$value <- test$score
+```
+
+```{r}
+#bagged model
+bag2 <- randomForest(data = num_only, stars~., ntree = 500, mtry = ncol(num_only) - 1)
+pred_bag2 <- predict(object = bag2, newdata = test, type = "response")
+adj_bag <- round(pred_bag2)
+for (i in 1:length(adj_bag)) {
+  if (adj_bag[i] > 5) {
+    adj_bag[i] <- 5
+  }
+  if (adj_bag[i] < 1) {
+    adj_bag[i] <- 1
+  }
+}
+
+mse_bag2 <- mean((pred_bag2 - test$stars)^2)
+mse_bag2
+
+#misclassification
+conf_bag2 <- table(test$starsfactor, adj_bag)
+misc_bag2 <- 1 - (sum(diag(conf_bag2)) / sum(conf_bag2))
+misc_bag2
+
+#type 1 error
+t1bag2 <- c(1:5)
+for (i in 1:5) {
+  t1bag2[i] <- conf_bag2[i,i] / sum(conf_bag2[,i])
+}
+t1_rate_bag2 <- mean(t1bag2)
+
+#type 2 error
+t2bag2 <- c(1:5)
+for (i in 1:5) {
+  t2bag2[i] <- conf_bag2[i,i] / sum(conf_bag2[i,])
+}
+t2_rate_bag2 <- mean(t2bag2)
+
+#random forest
+rf2 <- randomForest(data = num_only, stars~., ntree = 500, mtry = ncol(num_only)/3)
+pred_rf2 <- predict(object = rf2, newdata = test, type = "response")
+adj_rf <- round(pred_rf2)
+for (i in 1:length(adj_rf)) {
+  if (adj_rf[i] > 5) {
+    adj_rf[i] <- 5
+  }
+  if (adj_rf[i] < 1) {
+    adj_rf[i] <- 1
+  }
+}
+
+mse_rf2 <- mean((pred_rf2- test$stars)^2)
+mse_rf2
+
+#misclassification
+conf_rf2 <- table(test$starsfactor, adj_rf)
+misc_rf2 <- 1 - (sum(diag(conf_rf2)) / sum(conf_rf2))
+misc_rf2
+
+#type 1 error
+t1rf2 <- c(1:5)
+for (i in 1:5) {
+  t1rf2[i] <- conf_rf2[i,i] / sum(conf_rf2[,i])
+}
+t1_rate_rf2 <- mean(t1rf2)
+
+#type 2 error
+t2rf2 <- c(1:5)
+for (i in 1:5) {
+  t2rf2[i] <- conf_rf2[i,i] / sum(conf_rf2[i,])
+}
+t2_rate_rf2 <- mean(t2rf2)
+```
+
+```{r}
+#boosted trees
+boost2 <- gbm(data = num_only, stars ~ ., n.trees = 500, shrinkage = 0.1, interaction.depth = 1)
+pred_boost2 <- predict(object = boost2, newdata = test, type = "response", n.trees = 500)
+adj_boost <- round(pred_boost2)
+for (i in 1:length(adj_boost)) {
+  if (adj_boost[i] > 5) {
+    adj_boost[i] <- 5
+  }
+  if (adj_boost[i] < 1) {
+    adj_boost[i] <- 1
+  }
+}
+
+mse_boost2 <- mean((pred_boost2 - test$stars)^2)
+mse_boost2
+
+#misclassification
+conf_boost2 <- table(test$stars, adj_boost)
+misc_boost2 <- 1 - (sum(diag(conf_boost2)) / sum(conf_boost2))
+misc_boost2
+
+#type 1 error
+t1boost2 <- c(1:5)
+for (i in 1:5) {
+  t1boost2[i] <- conf_boost2[i,i] / sum(conf_boost2[,i])
+}
+t1_rate_boost2 <- mean(t1boost2)
+
+#type 2 error
+t2boost <- c(1:5)
+for (i in 1:5) {
+  t2boost2[i] <- conf_boost2[i,i] / sum(conf_boost2[i,])
+}
+t2_rate_boost2 <- mean(t2boost2)
+```
+
+```{r}
+#linear regression
+basiclinear <- lm(stars ~ joyratio + angerratio + fearratio + positiveratio + negativeratio + surpriseratio + disgustratio + trustratio + anticipationratio + nwords + nwords^2, data = num_only)
+pred_linear <- predict(object = basiclinear, newdata = test, type = "response")
+adj_linear <- round(pred_linear)
+for (i in 1:length(adj_linear)) {
+  if (adj_linear[i] > 5) {
+    adj_linear[i] <- 5
+  }
+  if (adj_linear[i] < 1) {
+    adj_linear[i] <- 1
+  }
+}
+
+mse_linear <- mean((pred_linear - test$stars)^2)
+mse_linear
+
+#misclassification
+conf_linear <- table(test$stars, adj_linear)
+misc_linear <- 1 - (sum(diag(conf_linear)) / sum(conf_linear))
+misc_linear
+
+#type 1 error
+t1linear <- c(1:5)
+for (i in 1:5) {
+  t1linear[i] <- conf_linear[i,i] / sum(conf_linear[,i])
+}
+t1_rate_linear <- mean(t1linear)
+
+#type 2 error
+t2linear <- c(1:5)
+for (i in 1:5) {
+  t2linear[i] <- conf_linear[i,i] / sum(conf_linear[i,])
+}
+t2_rate_linear <- mean(t2linear)
+```
+
+
+>>>>>>> cca4a7e8ffcda5487e33e847891661ddddf56ca9
+
+
+
+
+
+
+
+
