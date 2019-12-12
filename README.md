@@ -1,4 +1,4 @@
-Ryan Kobler, Claire Jellison, Ryan Kobler
+Jacob Goldsmith, Claire Jellison, Ryan Kobler
 
 Group 3 - Math 243: Andrew P. Bray
 
