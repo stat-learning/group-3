@@ -1,0 +1,289 @@
+---
+title: "Fitting models: Random Forest and Bagged"
+output: github_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gbm)
+library(randomForest)
+library(dplyr)
+
+# Read data
+train_senti <- read.csv("DATA/train_senti.csv")
+test_senti <- read.csv("DATA/test_senti.csv")
+train_bag <- read.csv("DATA/train_bag.csv")
+test_bag <- read.csv("DATA/test_bag.csv")
+
+```
+
+
+### Sentiment library: Boosted Model
+```{r cars, cache = T}
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df.counts <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.ratios <- train_senti %>%
+  select(score, stars, sentiments, 
+         sentences, punct, exclaim, nwords)
+n <- nrow(df.counts)
+
+boost.counts <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.counts <- predict(boost.counts, newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+
+mse.counts <- mean((yhat.counts - df.counts[1:n,]$stars)^2)
+
+
+
+boost.ratios <- gbm(data = df.counts[1:n,], stars ~ .,
+                   distribution = "gaussian",
+             n.trees = 100, 
+             shrinkage = 0.1, 
+             interaction.depth = 1)
+
+yhat.ratios <- predict(boost.ratios, 
+                      newdata = df.counts[1:n,],
+                      n.trees = 100, 
+                      type = "response")
+
+mse.ratios <- mean((yhat.ratios - df.ratios[1:n,]$stars)^2)
+
+mse.ratios
+mse.counts
+```
+
+## Bag of words: Tree MSEs
+```{r, cache = T}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+df <- train_bag %>% 
+  select(-c(X.1, X))
+
+df.test <- test_bag %>% 
+  select(-c(X.1, X))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(STARS)
+x.test <- df.test %>%
+  select(-c(STARS))
+#-----------------------------------------------------
+
+n <- 1000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "regression",
+                   STARS~., 
+                   xtest = x.test[, 1:p],
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = p / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.bag <- randomForest(data = df[1:n, 1:(p+1)], 
+                       type = "regression",
+                       STARS~., 
+                       xtest = x.test[, 1:p],
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = p)
+
+
+mse.df.bag <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses.bag <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Bag of words data: Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses.bag
+
+# MSES FOR BEST TREES FROM BAG OF WORDS
+bagged.bag$mse[100]
+rf.bag$mse[100]
+```
+
+## Bag of words: Tree MCRs
+```{r}
+n <- 5000
+p <- 500
+# Tree-based methods ~ Regression
+rf.bag.class <- randomForest(data = df[1:n, 1:(p + 1)], 
+                   type = "multinomial",
+                   as.factor(STARS)~., 
+                   xtest = x.test[, 1:p],
+                   ytest = as.factor(y.test),
+                   ntree = 100, 
+                   mtry = p / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.bag.class <- randomForest(data = df[1:n, 1:(p+1)], 
+                       type = "multinomial",
+                       as.factor(STARS)~., 
+                       xtest = x.test[, 1:p],
+                       ytest = as.factor(y.test),
+                       ntree = 100, 
+                       mtry = p)
+
+bag.OOB.err.bagged <- bagged.bag.class$err.rate[ ,1]
+bag.OOB.err.rf <- rf.bag.class$err.rate[ ,1]
+
+which.min(bag.OOB.err.rf) # 70 trees
+which.min(bag.OOB.err.bagged) # 100 trees
+min(bag.OOB.err.bagged) # 0.471
+min(bag.OOB.err.rf) # 0.454
+
+bag.test.err.bagged <- bagged.bag.class$test$err.rate[, 1]
+bag.test.err.rf <- rf.bag.class$test$err.rate[, 1]
+
+which.min(bag.test.err.rf) # 54 trees
+which.min(bag.test.err.bagged) # 94 trees
+min(bag.test.err.bagged) # 0.5767
+min(bag.test.err.rf) # 0.582
+
+```
+
+
+## Sentiment: Tree MSEs
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.test <- test_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(stars)
+x.test <- df.test %>%
+  select(-c(stars))
+#-----------------------------------------------------------
+set.seed(120)
+# select only some of the observations for run time concerns
+n <- nrow(df)
+# Tree-based methods ~ Regression
+rf <- randomForest(data = df[1:n,], 
+                   type = "regression",
+                   stars~., 
+                   xtest = x.test,
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = ncol(df) / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged <- randomForest(data = df[1:n,], 
+                       type = "regression",
+                       stars~., 
+                       xtest = x.test,
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = ncol(df))
+
+
+mse.df <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses
+
+# BEST MSES FOR SENTIMENT LIBRARY TREES
+bagged$mse[100]
+rf$mse[100]
+```
+
+
+## Sentiment: Tree MCRs
+```{r}
+n <- nrow(df)
+rf.class <- randomForest(data = df[1:n,], 
+                   type = "multinomial",
+                   as.factor(stars)~., 
+                   xtest = x.test,
+                   ytest = as.factor(y.test),
+                   ntree = 100, 
+                   mtry = ncol(df) / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged.class <- randomForest(data = df[1:n,], 
+                       type = "multinomial",
+                       as.factor(stars)~., 
+                       xtest = x.test,
+                       ytest = as.factor(y.test),
+                       ntree = 100, 
+                       mtry = ncol(df))
+
+OOB.err.bagged <- bagged.class$err.rate[ ,1]
+OOB.err.rf <- rf.class$err.rate[ ,1]
+
+which.min(OOB.err.rf) # 85 trees
+which.min(OOB.err.bagged) # 71 trees
+min(OOB.err.bagged) # 0.5
+min(OOB.err.rf) # 0.484
+
+test.err.bagged <- bagged.class$test$err.rate[, 1]
+test.err.rf <- rf.class$test$err.rate[, 1]
+
+which.min(test.err.rf) # 88 trees
+which.min(test.err.bagged) # 100 trees
+min(test.err.bagged) # 0.5078
+min(test.err.rf) # 0.504
+```
+
+
+
+
