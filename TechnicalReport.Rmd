@@ -1,59 +1,68 @@
 ---
-title: "TechnicalReport"
-author: "Group 3"
+title: "Technical Report"
+author: "Jacob Goldsmith, Claire Jellison, Ryan Kobler"
 date: "12/2/2019"
 output:
-  pdf_document: default
-  html_document:
-    df_print: paged
+  github_document: default
 ---
+```{r, echo = FALSE}
+# styles
+library(gridExtra)
+library(kableExtra)
 
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+```
 
 Your technical report should be an .Rmd file that contains the following sections. So as not to make the compilation (knitting) of the document not take too long, consider setting cache = TRUE in the curly braces of any R chunk with substantial computing. Please knit both to pdf and github document (.md).
 
 ### Abstract
 A brief overview of the area that you’ll be investigating, the research question(s) of interest, your approach to analysis, and the general conclusions.
 
-The Yelp dataset includes over 5 million text reviews from businesses around the world. We aim to predict the number of stars a reviewer gives a business from the text of the review itself. To do so, we take two approaches: sentiment dictionaries and learning from the data itself.
+The Yelp dataset includes over 5 million text reviews from businesses around the world. We aim to predict the number of stars a reviewer gives a business from the text of the review itself. To do so, we take two approaches: connecting review words to sentiment dictionaries and learning from the data itself. Because the nature of our response variable is ordered, we also think about how the fit of our model should be judged using a handful of different error measurements.
 
-To glean meaning from the words a reviewer uses, we turned first to the NRC sentiment dictionary. This is a basket of over 14,000 words manually coded into 9 sentiments based on surveys from human reviewers. In this way, each word on its own (devoid of surrounding context) has an a priori meaning determined solely by the categories the sample of reviewers chose. We also assign rankings based upon the Afinn dictionary for every pair of words, or bigram, within a review. Afinn uses a numeric scale so that we can easily flip the score of any negated word pair such as "not good."  Our misclassification rates (MCR) ranged between 0.473 and 0.535, attributed in part to high correct classification rates for 1 and 5 star reviews but abysmal correct classifications for 2 and 3 star reviews. Tree-based methods tended to perform best    
+To glean meaning from the words a reviewer uses, we turned first to the NRC sentiment dictionary. This is a basket of over 14,000 words manually coded into 9 sentiments based on surveys from human reviewers. In this way, each word on its own (devoid of surrounding context) has a meaning determined a priori by the categories the sample of reviewers chose. We also assign rankings based upon the Afinn dictionary for every pair of words, or bigram, within a review. Afinn uses a numeric scale so that we can easily flip the score of any negated word pair such as "not good."  Our misclassification rates (MCR) ranged between 0.473 and 0.535, attributed in part to high correct classification rates for 1 and 5 star reviews but abysmal correct classifications for 2 and 3 star reviews. Tree-based methods tended to perform best, but all methods performed worse in the 2-3 star case.        
 
 
 ### Introduction
 Overview of the setting of the data, existing theories/models (particularly if you are working in a descriptive/inferential setting), and your research questions.
 
-Our task was inherently prediction-based, rather than a question of inference. Can statistical learning models learn to process language used in Yelp reviews? So the start we searched for predictors from the data. Generally after reading a review, guessing the number of stars they gave is easy.  So the analysis below can be considered an exercise in natural language processing.  
+Our task is prediction-based. After reading a review, it's easy for humans to place it into the proper rating. We examine each individual word's meaning, look for dependencies between words, discern the strength of a sentiment based upon context clues, correct misspellings automatically, note sarcasm, among others. Can statistical learning models learn to process language used in Yelp reviews? Our predictors from the text were mainly single word and bigram phrases, and the analysis below became an exercise in natural language processing.
 
 ### The Data
 Where does the data come from? How many observations? How many variables? What does each observation refer to (what is the observational unit)? What sorts of data processing was necessary to get the data in shape for analysis?
 
-We turn to the rich Yelp Kaggle data set, which contains 5,200,000 reviews and the variables 
+We turn to the extensive [Yelp Kaggle data set](https://www.kaggle.com/yelp-dataset/yelp-dataset/version/6#yelp_review.csv), which contains 5,200,000 reviews and the 7 variables below: 
 
-- text: contains the text of the review as a string
+- `text`: contains the text of the review as a string
 
-- business_id: identifier for the business being reviewed, character
+- `business_id`: identifier for the business being reviewed, character
 
-- review_id: unique identifier for each review (observations are uniquely identified by this), character
+- `review_id`: unique identifier for each review (observations are uniquely identified by this), character
 
-- user_id: identifier for each user submitting a review, character
+- `user_id`: identifier for each user submitting a review, character
 
-- cool: number of people who found the review "cool", numeric
+- `cool`: number of people who found the review "cool", numeric
 
-- funny: number of people who found the review "funny", numeric
+- `funny`: number of people who found the review "funny", numeric
 
-- useful: number of people who found the review "useful", numeric
+- `useful`: number of people who found the review "useful", numeric
 
-Though there are interesting extenstions in the the other variables given in the raw data set, all of predictors for this analysis come from transformations to the `text` variable.
+Though there are interesting extenstions in the the other variables given in the raw data set, all predictors for this analysis come from transformations to the raw `text` variable.
 
-The Yelp data set's size gives us plenty of test data to work with, so we create four different data sets to fit (training) then assess (test) our model. So generally, we need not use cross validation to estimate our models' test errors. 
+The Yelp data set's size gives plenty of test data to work with, so we create four different data sets to fit (training) then assess (test) our model. So generally, we need not use cross validation to estimate our models' test errors. 
 
 | Feature Extraction Approach | Training | Test |
 |:---------:|:---------:|:-------:|
 | Sentiment dictionaries | 52,945 x 37 table | 9,850 x 37 table |
 | Bag of words | 20,000 x 2,004 table | 9,850 x 2,004 table | 
 
-```{r, cache = TRUE}
+<<<<<<< HEAD
+```{r, cache = TRUE, echo=FALSE}
 ctrain_bag <- read.csv("DATA/train_bag.csv")
+train_senti <- read.csv("DATA/train_senti.csv")
+train_bag <- read.csv("DATA/train_bag.csv")
 test_senti <- read.csv("DATA/test_senti.csv")
 test_bag <- read.csv("DATA/test_bag.csv")
 
@@ -66,28 +75,114 @@ library(ggplot2)
 ### Exploratory Data Analysis
 Explore the structure of the data through graphics. Here you can utilize both traditional plots as well as methods from unsupervised learning. Understanding the distribution of your response is particular important, but also investigate bivariate and higher-order relationships that you expect to be particular interesting.
 
+The bulk of our data exploration comes at our choices of features to extract, then the methodology by which to extract those features. 
+
+#### Sentiment dictionaries
+
+Cleaning process:
+1) Drop all stop words from the review such as "the", "in", "to", "a", etc.
+  - Count # non-stop words
+2) Remove all non-English reviews using the `textcat` package.
+3) Tokenize the words (used `stringr` library to split by space, and grepl function to remove unnessessary punctuation, etc). so that we are left with only meaningful words,
+4) Join words from the sentiment categories in NRC and count number of words in each review by sentiment that are categorized into a sentiment.
+
+
+This resulted a dataset with the dimensions listed above. 
+```{R}
+x <- train_senti %>% select(-c(X.1, X, X1))
+glimpse(x)
+```
+- `nwords`: number of words in a given review
+
+- `punct`: number of punctuation marks except apostrophes
+
+- `score`: average sentiment for all adjacent two-word pairs or bigrams within a given review negations were negated by their second word. (i.e. if "good" = 2 then "not good" = -2)
+
+- `sentences`: number of sentences within a given review
+
+- `exclaim`: number of exclamation marks within a given review
+
+- `joy`: number words categorized as "joy" within the NRC lexicon
+
+- `disgust`: 
+
+- `anger`: 
+
+- `fear`: 
+
+- `positive`: 
+
+- `trust`: 
+
+- `negative`: 
+
+- `anticipation`: 
+
 
 ```{r fig1, echo=FALSE, fig.cap="\\label{fig:fig1}Distribution of the Response", cache=TRUE}
 ggplot(train_senti, aes(starsfactor)) + 
   geom_histogram(binwidth=1) + 
   ggtitle("Bar Graph of Stars")
 nrow(train_senti %>% filter(stars == 2 | stars == 3)) / nrow(train_senti)
-
 ```
-From Figure \ref{fig:fig1} we can see that our sample of the Yelp data set is left skewed. The bulk of the reviews are clustered at 5, 4, then 1. Two and three-star reviews jointly comprise only 19.7% of all reviews. Therefore, we might expect classification models to do worse overall at predicting these categories. Considering that 2-3 star "middle-of-road" reviews may lack strong sentiment words at either end of the spectrum, we hypothesize that our sentiment libraries may not predict experiences that were "just ok."   
+
+Figure \ref{fig:fig1} shows that our sample is left skewed. The bulk of the reviews are clustered at 5, 4, then 1. Two and three-star reviews jointly comprise only 19.7% of all reviews. Therefore, we might expect classification models to do worse overall at predicting these categories. 2-3 star "middle-of-road" reviews may lack strong sentiment words at either end of the spectrum, so we hypothesize that our sentiment libraries may have trouble predicting lukewarm reviews.   
 
 ```{r, cache=TRUE}
 # Disgust
-ggplot(train_senti, aes(starsfactor, disgustratio)) + 
+disgust <- ggplot(train_senti, aes(starsfactor, disgustratio)) + 
   geom_bar(stat = "identity") +
   ggtitle("Distribution of disgust words")
 
 # Negativity
-ggplot(train_senti, aes(stars, negativeratio)) + 
+negativ <- ggplot(train_senti, aes(stars, negativeratio)) + 
   geom_bar(stat = "identity") +
   ggtitle("Distribution of negative words")
 
+grid.arrange(disgust, negativ)
+```
 
+The graphs above may appear counterintuitive. But more 5-star reviews overall meant more chances in which the negativeratio could rocket up. The table of summary statistics reveals that postive leaning sentiments (joy, positive, etc.) were not necessarily increasing in stars. So we think the `score` variable may dampen the effect of negated positive or joyful words in lower scoring reviews. 
+
+![Summary statistics across 5 predictors](images/summary stats table.png)
+
+```{r}
+t.score <- train_senti %>%
+  group_by(stars) %>%
+  summarise(means = mean(score, na.rm = T)) %>%
+  pull(means)
+
+t.joyratio <- train_senti %>%
+  group_by(stars) %>%
+  summarise(means = mean(joyratio, na.rm = T)) %>%
+  pull(means)
+
+t.joy <- train_senti %>%
+  group_by(stars) %>%
+  summarise(means = mean(joy, na.rm = T)) %>%
+  pull(means)
+
+t.positive <- train_senti %>%
+  group_by(stars) %>%
+  summarise(means = mean(positive, na.rm = T)) %>%
+  pull(means)
+
+t.disgust <- train_senti %>%
+  group_by(stars) %>%
+  summarise(means = mean(disgust, na.rm = T)) %>%
+  pull(means)
+
+t.negative <- train_senti %>%
+  group_by(desc(stars)) %>%
+  summarise(means = mean(negative, na.rm = T)) %>%
+  pull(means)
+
+library(kableExtra)
+
+table <- rbind(t.negative, t.disgust, t.positive, t.joy, t.score)
+colnames(table) <- c(1:5)
+table <- t(table)
+rownames(table) <- c(1:5)
 ```
 
 ```{r fig2, echo = FALSE, fig.cap="\\label{fig:fig2}Scatter of Stars", cache=TRUE}
@@ -97,13 +192,24 @@ ggplot(train_senti, aes(x=positive, y = disgust)) +
 ```
 In Figure \ref{fig:fig2} we can see that positively identified words are correlated with higher levels of stars, whereas the cluster of dark blue indicates that the presence of more disgust words in proportion to the total number of words is correlated with lower stars. 
 
+In the figure below, the number of stars appears to be decreasing in the number of words in general. This could be because people at the lower end of the star spectrum might have more to say, or describe specific instances or stories in which their expectations were not met. 
+```{r fig3, echo = FALSE, fig.cap="\\label{fig:fig3}Scatterplot of number of words in a review vs. stars"}
+ggplot(data = train_senti, aes(x = nwords, y = stars)) + 
+  geom_jitter(size = 0.25) + 
+  geom_smooth() #stars
+```
+
+#### Natural clustering into 5 categories using K-means
+```{}
+#  k-means visualization
+```
 
 ### Modeling
 Construct (descriptive and/or predictive) (classification and/or regression) models that address your research questions. You are encouraged to fit many different classes of models and see how they compare in terms the bias/variance tradeoff (do you have a Rashomon effect going on?). Also be sure to guard against overfitting through cross-validation or shrinkage/penalization (don’t forget about ridge regression and the lasso).
 
 This will be the most extensive section and will include your results as well.
 
-We had three main types of models:
+To answer one of our initial questions, proper treatment of ordered classes, we fit a series of classification and regression models. We had three main types of models:
 
 ##Tree based models:
 #BAGGED FOREST
@@ -296,7 +402,8 @@ mat_qda[6, 6] <- NA
 mat_qda
 ```
 
-```
+
+
 ### Discussion
 Review the results generated above and sythensize them in the context from which the data originated. What do the results tell your about your original research question? Are there any weaknesses that you see in your analysis? What additional questions would you explore next?
 
@@ -304,11 +411,114 @@ We took two main approaches in our modeling. First, we relied on pre-created dic
 
 Thus, our second modeling approach was to let the data teach us how to group the words. Each of the most commonly used 1000 words was coded as an integer variable indicating how many times the word was used in the text. The algorithm had no a priori information about the meaning of the words, nor about their likely groupings. This sort of modeling made the most sense to do with algorithms that do well with high dimensional predictor sets, such as ensembles of trees. Whereas individual trees and parametric models would be liable to have high variance with a high number of predictors, random forests get around this by taking bootstrap samples and randomly removing variables at each partition. This makes the resulting predictions more robust, because features in the data that by chance cause large swings in the model are averaged away during the course of bootstrap aggregation and variable deletion, leaving a model that is less sensitive to the "Rashemon effect".
 
-#### Which loss function can we trust to evaluate our models?
+RANDOM FOREST:
+
+Benefits - can overcome the problem of variance that arises from bagged trees by forcing each decision tree split to consider only a subset of the total predictors. Small $m$ is helpful given a large number of correlated predictors, such as our bag of words data set (ISLR). This is true for our data as well--smaller $m$, given by the blue and purple lines, outperforms larger $m$. We expect the difference between $m = p$ and $m = \sqrt{p}$ to be more prevalent using the bag of words data. 
+
+```{r}
+# Code below ensures that we don't have any missingness or non-numeric predictors
+# in the dfs used to fit the model
+cols <- colnames(train_senti)
+drop <- grepl("ratio|X|id|funny|cool|useful", cols)
+cols.counts <- setdiff(cols, cols[drop])
+
+sentiments <- c("anger", "fear", "surprise", "trust", "disgust", "negative", "positive", "joy")
+
+df <- train_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+df.test <- test_senti %>% 
+  select(score, stars, cols.counts) %>%
+  select(-c(text, date, starsfactor, language))
+
+row.has.na <- apply(df, 1, function(x){any(is.na(x))})
+df <- df[!row.has.na, ]
+
+row.has.na <- apply(df.test, 1, function(x){any(is.na(x))})
+df.test <- df.test[!row.has.na, ]
+
+y.test <- df.test %>%
+  pull(stars)
+x.test <- df.test %>%
+  select(-c(stars))
+```
+
+### Fitting Regression and Bagged Models
+Using counts
+Using ratios
+```{r}
+set.seed(120)
+# select only some of the observations for run time concerns
+n <- 1000
+# Tree-based methods ~ Regression
+rf <- randomForest(data = df[1:n,], 
+                   type = "regression",
+                   stars~., 
+                   xtest = x.test,
+                   ytest = y.test,
+                   ntree = 100, 
+                   mtry = ncol(df) / 3)
+
+# specify x.test and y.test arguments to calculate a test error
+bagged <- randomForest(data = df[1:n,], 
+                       type = "regression",
+                       stars~., 
+                       xtest = x.test,
+                       ytest = y.test,
+                       ntree = 100, 
+                       mtry = ncol(df))
+
+
+mse.df <- data.frame(rfs = rf$mse, 
+                     bagged = bagged$mse,
+                     rfs_test = rf$test$mse,
+                     bagged_test = bagged$test$mse)
+                     
+
+forest.mses <- ggplot(data = mse.df, aes(x = c(1:100))) +
+  geom_line(aes(y = bagged, color = "Bagged OOB MSES")) +
+  geom_line(aes(y = rfs, color = "Random Forest OOB MSES")) + 
+  geom_line(aes(y = rfs_test, color = "Random Forest test MSES")) + 
+  geom_line(aes(y = bagged_test, color = "Bagged test MSES")) + 
+  labs(title = "Error across bagged and random forest regression models") +
+  xlab("Number of trees") +
+  ylab("Error")
+  
+forest.mses
+```
+
+
+1. Variable Importance
+
+2. 5-fold misclassification rate/ oob misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from rows of confusion matrix)
+  ii.Type 2 error rate for each class (from columns of confusion matrix)
+
+4. Test Misclassification rate
+
+
+
+BOOSTED TREES:
+
+1. Variable Importance
+
+2. 5-fold misclassification rate
+
+3. Confusion matrix on test dataset
+  i. Type 1 error rate for each class (from rows of confusion matrix)
+  ii.Type 2 error rate for each class (from columns of confusion matrix)
+
+4. Test Misclassification rate
+>>>>>>> 3ffd6f555b95d0bc95adbf771386c749deb6b5e4
+
+#### Which measure of error can we trust to evaluate our models?
 
 
 ### References
-At minimum, this will contain the full citation for your data set. If you reference existing analyses, they should be cited here as well.
+James, Gareth, Daniela Witten, Trevor Hastie, and Robert Tibshirani, eds. 2013. An Introduction to Statistical Learning: With Applications in R. New York: Springer.
 
 Crowdsourcing a Word-Emotion Association Lexicon, Saif Mohammad and Peter Turney, Computational Intelligence, 29 (3), 436-465, 2013.
 
